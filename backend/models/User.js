@@ -27,9 +27,9 @@ userSchema.statics.seedAdmin = async function() {
       password: hashedPassword,
       role: 'admin',
     });
-    console.log('Admin user seeded');
+    
   } else {
-    console.log('Admin user already exists');
+    
   }
 };
 
