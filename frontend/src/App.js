@@ -2,20 +2,21 @@ import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { Container, Navbar, Nav } from 'react-bootstrap';
 import { motion, AnimatePresence } from 'framer-motion';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Attendance from './pages/Attendance';
+import Classes from './pages/Classes';
+import Complaints from './pages/Complaints';
+import Departments from './pages/Departments';
+import Notices from './pages/Notices';
+import Timetable from './pages/Timetable';
+import Chat from './pages/Chat';
+import Profile from './pages/Profile';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Page placeholders
 const Home = () => <h2>Welcome to Digital Campus</h2>;
-const Login = () => <h2>Login</h2>;
-const Register = () => <h2>Register</h2>;
-const Dashboard = () => <h2>Dashboard</h2>;
-const Attendance = () => <h2>Attendance</h2>;
-const Classes = () => <h2>Classes</h2>;
-const Complaints = () => <h2>Complaints</h2>;
-const Departments = () => <h2>Departments</h2>;
-const Notices = () => <h2>Notices</h2>;
-const Timetable = () => <h2>Timetable</h2>;
-const Chat = () => <h2>Chat</h2>;
-const Profile = () => <h2>Profile</h2>;
 
 const pageVariants = {
   initial: { opacity: 0, y: 20 },
@@ -55,15 +56,15 @@ function App() {
             <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
             <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
             <Route path="/register" element={<PageWrapper><Register /></PageWrapper>} />
-            <Route path="/dashboard" element={<PageWrapper><Dashboard /></PageWrapper>} />
-            <Route path="/attendance" element={<PageWrapper><Attendance /></PageWrapper>} />
-            <Route path="/classes" element={<PageWrapper><Classes /></PageWrapper>} />
-            <Route path="/complaints" element={<PageWrapper><Complaints /></PageWrapper>} />
-            <Route path="/departments" element={<PageWrapper><Departments /></PageWrapper>} />
-            <Route path="/notices" element={<PageWrapper><Notices /></PageWrapper>} />
-            <Route path="/timetable" element={<PageWrapper><Timetable /></PageWrapper>} />
-            <Route path="/chat" element={<PageWrapper><Chat /></PageWrapper>} />
-            <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
+            <Route path="/dashboard" element={<ProtectedRoute><PageWrapper><Dashboard /></PageWrapper></ProtectedRoute>} />
+            <Route path="/attendance" element={<ProtectedRoute><PageWrapper><Attendance /></PageWrapper></ProtectedRoute>} />
+            <Route path="/classes" element={<ProtectedRoute><PageWrapper><Classes /></PageWrapper></ProtectedRoute>} />
+            <Route path="/complaints" element={<ProtectedRoute><PageWrapper><Complaints /></PageWrapper></ProtectedRoute>} />
+            <Route path="/departments" element={<ProtectedRoute><PageWrapper><Departments /></PageWrapper></ProtectedRoute>} />
+            <Route path="/notices" element={<ProtectedRoute><PageWrapper><Notices /></PageWrapper></ProtectedRoute>} />
+            <Route path="/timetable" element={<ProtectedRoute><PageWrapper><Timetable /></PageWrapper></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><PageWrapper><Chat /></PageWrapper></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><PageWrapper><Profile /></PageWrapper></ProtectedRoute>} />
           </Routes>
         </AnimatePresence>
       </Container>
