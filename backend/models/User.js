@@ -11,8 +11,29 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     department: { type: mongoose.Schema.Types.ObjectId, ref: "Department" }, // for faculty, departmentAdmin, student
-    class: { type: mongoose.Schema.Types.ObjectId, ref: "Class" }, // for students
-    section: { type: String }, // for students
+    class: { type: mongoose.Schema.Types.ObjectId, ref: "Class" }, // for students - the specific section they belong to
+    
+    // Additional fields for faculty
+    phone: { type: String },
+    specialization: { type: String }, // for faculty
+    qualification: { type: String }, // for faculty
+    experience: { type: Number, default: 0 }, // for faculty
+    designation: { type: String, default: 'Faculty' }, // for faculty
+    isClassTeacher: { type: Boolean, default: false }, // indicates if faculty is a class teacher
+    
+    // Additional fields for students
+    rollNumber: { type: String }, // for students
+    year: { type: String }, // for students (1st Year, 2nd Year, etc.)
+    address: { type: String }, // for students
+    parentName: { type: String }, // for students
+    parentPhone: { type: String }, // for students
+    
+    // Status field for both faculty and students
+    status: { 
+      type: String, 
+      enum: ['active', 'inactive'], 
+      default: 'active' 
+    }
   },
   { timestamps: true }
 );

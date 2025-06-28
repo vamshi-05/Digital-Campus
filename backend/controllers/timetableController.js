@@ -1,14 +1,55 @@
 const Timetable = require('../models/Timetable');
 const Class = require('../models/Class');
+const Department = require('../models/Department');
+const Subject = require('../models/Subject');
+const User = require('../models/User');
 
 exports.addTimetable = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
-    const { classId, schedule } = req.body;
-    const timetable = new Timetable({ class: classId, schedule });
+    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    const { classId, schedule, academicYear, semester } = req.body;
+    
+    // Verify class exists
+    const classData = await Class.findById(classId);
+    if (!classData) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+    
+    // Check if timetable already exists for this class
+    const existingTimetable = await Timetable.findOne({ class: classId });
+    if (existingTimetable) {
+      return res.status(400).json({ message: 'Timetable already exists for this class' });
+    }
+    
+    const timetable = new Timetable({ 
+      class: classId, 
+      department: classData.department,
+      schedule,
+      academicYear: academicYear || classData.academicYear,
+      semester: semester || classData.semester
+    });
+    
     await timetable.save();
+    
+    // Update class with timetable reference
     await Class.findByIdAndUpdate(classId, { timetable: timetable._id });
-    res.status(201).json(timetable);
+    
+    const populatedTimetable = await Timetable.findById(timetable._id)
+      .populate('class', 'name fullName')
+      .populate('department', 'name code')
+      .populate({
+        path: 'schedule.periods.subject',
+        select: 'name code'
+      })
+      .populate({
+        path: 'schedule.periods.teacher',
+        select: 'name email'
+      });
+    
+    res.status(201).json(populatedTimetable);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -17,7 +58,175 @@ exports.addTimetable = async (req, res) => {
 exports.getTimetable = async (req, res) => {
   try {
     const { classId } = req.params;
-    const timetable = await Timetable.findOne({ class: classId });
+    
+    const timetable = await Timetable.findOne({ class: classId })
+      .populate('class', 'name fullName')
+      .populate('department', 'name code')
+      .populate({
+        path: 'schedule.periods.subject',
+        select: 'name code'
+      })
+      .populate({
+        path: 'schedule.periods.teacher',
+        select: 'name email'
+      });
+    
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found' });
+    }
+    
+    res.json(timetable);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updateTimetable = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    const { id } = req.params;
+    const { schedule, status } = req.body;
+    
+    const timetable = await Timetable.findById(id);
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found' });
+    }
+    
+    const updatedTimetable = await Timetable.findByIdAndUpdate(
+      id,
+      { schedule, status },
+      { new: true, runValidators: true }
+    )
+    .populate('class', 'name fullName')
+    .populate('department', 'name code')
+    .populate({
+      path: 'schedule.periods.subject',
+      select: 'name code'
+    })
+    .populate({
+      path: 'schedule.periods.teacher',
+      select: 'name email'
+    });
+    
+    res.json(updatedTimetable);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.deleteTimetable = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    const { id } = req.params;
+    
+    const timetable = await Timetable.findById(id);
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found' });
+    }
+    
+    // Remove timetable reference from class
+    await Class.findByIdAndUpdate(timetable.class, { $unset: { timetable: 1 } });
+    
+    await Timetable.findByIdAndDelete(id);
+    res.json({ message: 'Timetable deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getTimetablesByDepartment = async (req, res) => {
+  try {
+    const { departmentId, academicYear, semester } = req.query;
+    let query = {};
+    
+    if (departmentId) query.department = departmentId;
+    if (academicYear) query.academicYear = academicYear;
+    if (semester) query.semester = semester;
+    
+    const timetables = await Timetable.find(query)
+      .populate('class', 'name fullName')
+      .populate('department', 'name code')
+      .populate({
+        path: 'schedule.periods.subject',
+        select: 'name code'
+      })
+      .populate({
+        path: 'schedule.periods.teacher',
+        select: 'name email'
+      });
+    
+    res.json(timetables);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getTeacherTimetable = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    
+    // Verify teacher exists
+    const teacher = await User.findById(teacherId);
+    if (!teacher || teacher.role !== 'faculty') {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+    
+    const timetables = await Timetable.find({
+      'schedule.periods.teacher': teacherId
+    })
+    .populate('class', 'name fullName')
+    .populate('department', 'name code')
+    .populate({
+      path: 'schedule.periods.subject',
+      select: 'name code'
+    })
+    .populate({
+      path: 'schedule.periods.teacher',
+      select: 'name email'
+    });
+    
+    res.json(timetables);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getStudentTimetable = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    
+    // Get student's class
+    const student = await User.findById(studentId).populate('class');
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    if (!student.class) {
+      return res.status(404).json({ message: 'Student is not assigned to any class' });
+    }
+    
+    const timetable = await Timetable.findOne({ class: student.class._id })
+      .populate('class', 'name fullName')
+      .populate('department', 'name code')
+      .populate({
+        path: 'schedule.periods.subject',
+        select: 'name code'
+      })
+      .populate({
+        path: 'schedule.periods.teacher',
+        select: 'name email'
+      });
+    
+    if (!timetable) {
+      return res.status(404).json({ message: 'Timetable not found for this class' });
+    }
+    
     res.json(timetable);
   } catch (err) {
     res.status(500).json({ message: err.message });

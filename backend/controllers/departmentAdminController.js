@@ -1,0 +1,764 @@
+const User = require('../models/User');
+const Class = require('../models/Class');
+const Subject = require('../models/Subject');
+const Department = require('../models/Department');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+
+// Dashboard statistics
+const getDashboard = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    
+    // Get counts
+    const totalClasses = await Class.countDocuments({ department: departmentId });
+    const totalFaculty = await User.countDocuments({ 
+      role: 'faculty', 
+      department: departmentId 
+    });
+    const totalSubjects = await Subject.countDocuments({ department: departmentId });
+    const totalStudents = await User.countDocuments({ 
+      role: 'student', 
+      department: departmentId 
+    });
+
+    // Get recent classes
+    const recentClasses = await Class.find({ department: departmentId })
+      .populate('classTeacher', 'name')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('name classTeacher createdAt');
+
+    // Get recent faculty
+    const recentFaculty = await User.find({ 
+      role: 'faculty', 
+      department: departmentId 
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('name email createdAt');
+
+    res.json({
+      totalClasses,
+      totalFaculty,
+      totalSubjects,
+      totalStudents,
+      recentClasses: recentClasses.map(cls => ({
+        name: cls.name,
+        faculty: cls.classTeacher?.name || 'Unassigned',
+        subject: cls.specialization
+      })),
+      recentFaculty: recentFaculty.map(faculty => ({
+        name: faculty.name,
+        email: faculty.email,
+        subject: faculty.specialization || 'General'
+      }))
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({ message: 'Error fetching dashboard data' });
+  }
+};
+
+// Classes CRUD
+const getClasses = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const classes = await Class.find({ department: departmentId })
+      .populate('classTeacher', 'name')
+      .populate('timetable')
+      .sort({ createdAt: -1 });
+
+    const formattedClasses = classes.map(cls => ({
+      _id: cls._id,
+      name: cls.name || `${cls.program} ${cls.specialization}`,
+      subject: cls.specialization,
+      faculty: cls.classTeacher?.name || 'Unassigned',
+      schedule: cls.timetable?.schedule || 'Not scheduled',
+      room: cls.timetable?.room || 'TBD',
+      capacity: cls.capacity || cls.sections.reduce((total, section) => total + section.students.length, 0),
+      description: cls.description || `${cls.program} in ${cls.specialization}`
+    }));
+
+    res.json(formattedClasses);
+  } catch (error) {
+    console.error('Get classes error:', error);
+    res.status(500).json({ message: 'Error fetching classes' });
+  }
+};
+
+const createClass = async (req, res) => {
+  try {
+    const { name, subject, faculty, schedule, room, capacity, description } = req.body;
+    const departmentId = req.user.department;
+
+    // Find faculty user
+    const facultyUser = await User.findOne({ 
+      name: faculty, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    if (!facultyUser) {
+      return res.status(400).json({ message: 'Faculty not found' });
+    }
+
+    // Parse program and specialization from name
+    const [program, specialization] = name.split(' ');
+    
+    const newClass = new Class({
+      name: name,
+      program: program || 'B.Tech',
+      specialization: specialization || subject,
+      classTeacher: facultyUser._id,
+      department: departmentId,
+      capacity: capacity || 60,
+      description: description,
+      sections: [{
+        name: 'A',
+        students: []
+      }]
+    });
+
+    await newClass.save();
+
+    res.status(201).json({ message: 'Class created successfully', class: newClass });
+  } catch (error) {
+    console.error('Create class error:', error);
+    res.status(500).json({ message: 'Error creating class' });
+  }
+};
+
+const updateClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, subject, faculty, schedule, room, capacity, description } = req.body;
+    const departmentId = req.user.department;
+
+    const classToUpdate = await Class.findOne({ _id: id, department: departmentId });
+    if (!classToUpdate) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    // Find faculty user
+    const facultyUser = await User.findOne({ 
+      name: faculty, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    if (!facultyUser) {
+      return res.status(400).json({ message: 'Faculty not found' });
+    }
+
+    // Parse program and specialization from name
+    const [program, specialization] = name.split(' ');
+
+    classToUpdate.name = name;
+    classToUpdate.program = program || 'B.Tech';
+    classToUpdate.specialization = specialization || subject;
+    classToUpdate.classTeacher = facultyUser._id;
+    classToUpdate.capacity = capacity || classToUpdate.capacity;
+    classToUpdate.description = description || classToUpdate.description;
+
+    await classToUpdate.save();
+
+    res.json({ message: 'Class updated successfully', class: classToUpdate });
+  } catch (error) {
+    console.error('Update class error:', error);
+    res.status(500).json({ message: 'Error updating class' });
+  }
+};
+
+const deleteClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const classToDelete = await Class.findOne({ _id: id, department: departmentId });
+    if (!classToDelete) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    await Class.findByIdAndDelete(id);
+    res.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Delete class error:', error);
+    res.status(500).json({ message: 'Error deleting class' });
+  }
+};
+
+// Faculty CRUD
+const getFaculty = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const faculty = await User.find({ 
+      role: 'faculty', 
+      department: departmentId 
+    })
+    .populate('department', 'name')
+    .sort({ createdAt: -1 });
+
+    const formattedFaculty = faculty.map(f => ({
+      _id: f._id,
+      name: f.name,
+      email: f.email,
+      phone: f.phone || 'Not provided',
+      subject: f.specialization || 'General',
+      qualification: f.qualification || 'Not specified',
+      experience: f.experience || 0,
+      designation: f.designation || 'Faculty',
+      department: f.department?.name || 'Unknown',
+      status: f.status || 'active'
+    }));
+
+    res.json(formattedFaculty);
+  } catch (error) {
+    console.error('Get faculty error:', error);
+    res.status(500).json({ message: 'Error fetching faculty' });
+  }
+};
+
+const createFaculty = async (req, res) => {
+  try {
+    const { name, email, phone, subject, qualification, experience, designation } = req.body;
+    const departmentId = req.user.department;
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Generate temporary password
+    const tempPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const newFaculty = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: 'faculty',
+      department: departmentId,
+      phone,
+      specialization: subject,
+      qualification,
+      experience,
+      designation,
+      status: 'active'
+    });
+
+    await newFaculty.save();
+
+    // TODO: Send email with temporary password
+    console.log(`Temporary password for ${email}: ${tempPassword}`);
+
+    res.status(201).json({ 
+      message: 'Faculty created successfully', 
+      faculty: newFaculty,
+      tempPassword 
+    });
+  } catch (error) {
+    console.error('Create faculty error:', error);
+    res.status(500).json({ message: 'Error creating faculty' });
+  }
+};
+
+const updateFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, subject, qualification, experience, designation } = req.body;
+    const departmentId = req.user.department;
+
+    const facultyToUpdate = await User.findOne({ 
+      _id: id, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    if (!facultyToUpdate) {
+      return res.status(404).json({ message: 'Faculty not found' });
+    }
+
+    // Check if email is being changed and if it already exists
+    if (email !== facultyToUpdate.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+    }
+
+    facultyToUpdate.name = name;
+    facultyToUpdate.email = email;
+    facultyToUpdate.phone = phone;
+    facultyToUpdate.specialization = subject;
+    facultyToUpdate.qualification = qualification;
+    facultyToUpdate.experience = experience;
+    facultyToUpdate.designation = designation;
+
+    await facultyToUpdate.save();
+
+    res.json({ message: 'Faculty updated successfully', faculty: facultyToUpdate });
+  } catch (error) {
+    console.error('Update faculty error:', error);
+    res.status(500).json({ message: 'Error updating faculty' });
+  }
+};
+
+const deleteFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const facultyToDelete = await User.findOne({ 
+      _id: id, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    if (!facultyToDelete) {
+      return res.status(404).json({ message: 'Faculty not found' });
+    }
+
+    await User.findByIdAndDelete(id);
+    res.json({ message: 'Faculty deleted successfully' });
+  } catch (error) {
+    console.error('Delete faculty error:', error);
+    res.status(500).json({ message: 'Error deleting faculty' });
+  }
+};
+
+const resetFacultyPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const faculty = await User.findOne({ 
+      _id: id, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    if (!faculty) {
+      return res.status(404).json({ message: 'Faculty not found' });
+    }
+
+    // Generate new password
+    const newPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    faculty.password = hashedPassword;
+    await faculty.save();
+
+    // TODO: Send email with new password
+    console.log(`New password for ${faculty.email}: ${newPassword}`);
+
+    res.json({ 
+      message: 'Password reset successfully', 
+      newPassword 
+    });
+  } catch (error) {
+    console.error('Reset faculty password error:', error);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
+};
+
+// Subjects CRUD
+const getSubjects = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const subjects = await Subject.find({ department: departmentId })
+      .populate('faculty', 'name')
+      .populate('classes', 'name')
+      .sort({ createdAt: -1 });
+
+    const formattedSubjects = subjects.map(subject => ({
+      _id: subject._id,
+      name: subject.name,
+      code: subject.code,
+      description: subject.description || '',
+      credits: subject.credits || 3,
+      semester: subject.semester || '1st Semester',
+      faculty: subject.faculty?.name || 'Unassigned',
+      department: subject.department
+    }));
+
+    res.json(formattedSubjects);
+  } catch (error) {
+    console.error('Get subjects error:', error);
+    res.status(500).json({ message: 'Error fetching subjects' });
+  }
+};
+
+const createSubject = async (req, res) => {
+  try {
+    const { name, code, description, credits, semester, faculty } = req.body;
+    const departmentId = req.user.department;
+
+    // Check if code already exists
+    const existingSubject = await Subject.findOne({ code });
+    if (existingSubject) {
+      return res.status(400).json({ message: 'Subject code already exists' });
+    }
+
+    // Find faculty user
+    const facultyUser = await User.findOne({ 
+      name: faculty, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    const newSubject = new Subject({
+      name,
+      code,
+      description,
+      credits,
+      semester,
+      department: departmentId,
+      faculty: facultyUser ? [facultyUser._id] : []
+    });
+
+    await newSubject.save();
+
+    res.status(201).json({ message: 'Subject created successfully', subject: newSubject });
+  } catch (error) {
+    console.error('Create subject error:', error);
+    res.status(500).json({ message: 'Error creating subject' });
+  }
+};
+
+const updateSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, code, description, credits, semester, faculty } = req.body;
+    const departmentId = req.user.department;
+
+    const subjectToUpdate = await Subject.findOne({ _id: id, department: departmentId });
+    if (!subjectToUpdate) {
+      return res.status(404).json({ message: 'Subject not found' });
+    }
+
+    // Check if code is being changed and if it already exists
+    if (code !== subjectToUpdate.code) {
+      const existingSubject = await Subject.findOne({ code });
+      if (existingSubject) {
+        return res.status(400).json({ message: 'Subject code already exists' });
+      }
+    }
+
+    // Find faculty user
+    const facultyUser = await User.findOne({ 
+      name: faculty, 
+      role: 'faculty', 
+      department: departmentId 
+    });
+
+    subjectToUpdate.name = name;
+    subjectToUpdate.code = code;
+    subjectToUpdate.description = description;
+    subjectToUpdate.credits = credits;
+    subjectToUpdate.semester = semester;
+    subjectToUpdate.faculty = facultyUser ? [facultyUser._id] : [];
+
+    await subjectToUpdate.save();
+
+    res.json({ message: 'Subject updated successfully', subject: subjectToUpdate });
+  } catch (error) {
+    console.error('Update subject error:', error);
+    res.status(500).json({ message: 'Error updating subject' });
+  }
+};
+
+const deleteSubject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const subjectToDelete = await Subject.findOne({ _id: id, department: departmentId });
+    if (!subjectToDelete) {
+      return res.status(404).json({ message: 'Subject not found' });
+    }
+
+    await Subject.findByIdAndDelete(id);
+    res.json({ message: 'Subject deleted successfully' });
+  } catch (error) {
+    console.error('Delete subject error:', error);
+    res.status(500).json({ message: 'Error deleting subject' });
+  }
+};
+
+// Students CRUD
+const getStudents = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const students = await User.find({ 
+      role: 'student', 
+      department: departmentId 
+    })
+    .populate('class', 'name')
+    .populate('department', 'name')
+    .sort({ createdAt: -1 });
+
+    const formattedStudents = students.map(student => ({
+      _id: student._id,
+      name: student.name,
+      email: student.email,
+      phone: student.phone || 'Not provided',
+      rollNumber: student.rollNumber || 'Not assigned',
+      class: student.class?.name || 'Not assigned',
+      year: student.year || '1st Year',
+      department: student.department?.name || 'Unknown',
+      address: student.address || 'Not provided',
+      parentName: student.parentName || 'Not provided',
+      parentPhone: student.parentPhone || 'Not provided',
+      status: student.status || 'active'
+    }));
+
+    res.json(formattedStudents);
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({ message: 'Error fetching students' });
+  }
+};
+
+const createStudent = async (req, res) => {
+  try {
+    const { 
+      name, email, phone, rollNumber, class: className, year, 
+      address, parentName, parentPhone 
+    } = req.body;
+    const departmentId = req.user.department;
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Find class by name
+    const classObj = await Class.findOne({ 
+      name: className, 
+      department: departmentId 
+    });
+
+    // Generate temporary password
+    const tempPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const newStudent = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: 'student',
+      department: departmentId,
+      class: classObj?._id,
+      phone,
+      rollNumber,
+      year,
+      address,
+      parentName,
+      parentPhone,
+      status: 'active'
+    });
+
+    await newStudent.save();
+
+    // TODO: Send email with temporary password
+    console.log(`Temporary password for ${email}: ${tempPassword}`);
+
+    res.status(201).json({ 
+      message: 'Student created successfully', 
+      student: newStudent,
+      tempPassword 
+    });
+  } catch (error) {
+    console.error('Create student error:', error);
+    res.status(500).json({ message: 'Error creating student' });
+  }
+};
+
+const updateStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      name, email, phone, rollNumber, class: className, year, 
+      address, parentName, parentPhone 
+    } = req.body;
+    const departmentId = req.user.department;
+
+    const studentToUpdate = await User.findOne({ 
+      _id: id, 
+      role: 'student', 
+      department: departmentId 
+    });
+
+    if (!studentToUpdate) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Check if email is being changed and if it already exists
+    if (email !== studentToUpdate.email) {
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+    }
+
+    // Find class by name
+    const classObj = await Class.findOne({ 
+      name: className, 
+      department: departmentId 
+    });
+
+    studentToUpdate.name = name;
+    studentToUpdate.email = email;
+    studentToUpdate.phone = phone;
+    studentToUpdate.rollNumber = rollNumber;
+    studentToUpdate.class = classObj?._id;
+    studentToUpdate.year = year;
+    studentToUpdate.address = address;
+    studentToUpdate.parentName = parentName;
+    studentToUpdate.parentPhone = parentPhone;
+
+    await studentToUpdate.save();
+
+    res.json({ message: 'Student updated successfully', student: studentToUpdate });
+  } catch (error) {
+    console.error('Update student error:', error);
+    res.status(500).json({ message: 'Error updating student' });
+  }
+};
+
+const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const studentToDelete = await User.findOne({ 
+      _id: id, 
+      role: 'student', 
+      department: departmentId 
+    });
+
+    if (!studentToDelete) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    await User.findByIdAndDelete(id);
+    res.json({ message: 'Student deleted successfully' });
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({ message: 'Error deleting student' });
+  }
+};
+
+const resetStudentPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departmentId = req.user.department;
+
+    const student = await User.findOne({ 
+      _id: id, 
+      role: 'student', 
+      department: departmentId 
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Generate new password
+    const newPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    student.password = hashedPassword;
+    await student.save();
+
+    // TODO: Send email with new password
+    console.log(`New password for ${student.email}: ${newPassword}`);
+
+    res.json({ 
+      message: 'Password reset successfully', 
+      newPassword 
+    });
+  } catch (error) {
+    console.error('Reset student password error:', error);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
+};
+
+// Helper functions for lists
+const getFacultyList = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const faculty = await User.find({ 
+      role: 'faculty', 
+      department: departmentId 
+    })
+    .select('name email')
+    .sort({ name: 1 });
+
+    res.json(faculty);
+  } catch (error) {
+    console.error('Get faculty list error:', error);
+    res.status(500).json({ message: 'Error fetching faculty list' });
+  }
+};
+
+const getSubjectsList = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const subjects = await Subject.find({ department: departmentId })
+      .select('name code')
+      .sort({ name: 1 });
+
+    res.json(subjects);
+  } catch (error) {
+    console.error('Get subjects list error:', error);
+    res.status(500).json({ message: 'Error fetching subjects list' });
+  }
+};
+
+const getClassesList = async (req, res) => {
+  try {
+    const departmentId = req.user.department;
+    const classes = await Class.find({ department: departmentId })
+      .select('name program specialization')
+      .sort({ program: 1, specialization: 1 });
+
+    const formattedClasses = classes.map(cls => ({
+      _id: cls._id,
+      name: cls.name || `${cls.program} ${cls.specialization}`
+    }));
+
+    res.json(formattedClasses);
+  } catch (error) {
+    console.error('Get classes list error:', error);
+    res.status(500).json({ message: 'Error fetching classes list' });
+  }
+};
+
+module.exports = {
+  getDashboard,
+  getClasses,
+  createClass,
+  updateClass,
+  deleteClass,
+  getFaculty,
+  createFaculty,
+  updateFaculty,
+  deleteFaculty,
+  resetFacultyPassword,
+  getSubjects,
+  createSubject,
+  updateSubject,
+  deleteSubject,
+  getStudents,
+  createStudent,
+  updateStudent,
+  deleteStudent,
+  resetStudentPassword,
+  getFacultyList,
+  getSubjectsList,
+  getClassesList
+}; 

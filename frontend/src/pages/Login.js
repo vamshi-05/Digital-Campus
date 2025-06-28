@@ -20,7 +20,18 @@ export default function Login() {
     if (user.role === 'admin') {
       return <Navigate to="/super-admin/dashboard" />;
     }
-    return <Navigate to="/dashboard" />;
+    else if (user.role === 'departmentAdmin') {
+      return <Navigate to="/department-admin/dashboard" />;
+    }
+    else if (user.role === 'teacher') {
+      return <Navigate to="/teacher/dashboard" />;
+    }
+    else if (user.role === 'student') {
+      return <Navigate to="/student/dashboard" />;
+    }
+    else{
+      return <Navigate to="/login" />;
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -46,17 +57,12 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      <button 
-        onClick={() => navigate('/')} 
-        className="back-btn"
-      >
-        Back to Home
-      </button>
+    
       
       <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} className="login-card">
-        <div className="login-card-header">
+        {/* <div className="login-card-header">
           <h3>Login</h3>
-        </div>
+        </div> */}
         <div className="login-card-body">
           <form onSubmit={handleSubmit}>
             <div className="login-form-group">
@@ -93,9 +99,9 @@ export default function Login() {
         </div>
         <div className="login-footer">
           <p className="login-footer-text">
-            Don't have an account?{' '}
-            <Link to="/register" className="login-link">
-              Sign up here
+            Forgot password?{' '}
+            <Link to="/forgot-password" className="login-link">
+              Reset password
             </Link>
           </p>
         </div>

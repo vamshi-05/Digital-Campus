@@ -25,6 +25,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { handleError } from './utils/toast';
 import useAuth from './hooks/useAuth';
 import ManageDepartmentAdmins from './pages/ManageDepartmentAdmins';
+import DepartmentAdminDashboard from './pages/DepartmentAdminDashboard';
+import DepartmentClasses from './pages/DepartmentClasses';
+import DepartmentFaculty from './pages/DepartmentFaculty';
+import DepartmentSubjects from './pages/DepartmentSubjects';
+import DepartmentStudents from './pages/DepartmentStudents';
 
 // Page placeholders
 const Home = () => <h2>Welcome to Digital Campus</h2>;
@@ -119,6 +124,74 @@ function Navigation({ user, logout }) {
               <>
                 {user.role === 'admin' ? (
                   <>
+                    <li className="navbar-nav-right">
+                      <Link 
+                        to="/profile" 
+                        className="nav-link"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {user.name}
+                      </Link>
+                    </li>
+                    <li className="navbar-nav-right">
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="nav-link logout-btn"
+                      >
+                        Logout
+                      </button>
+                    </li>
+                  </>
+                ) : user.role === 'departmentAdmin' ? (
+                  <>
+                    <li>
+                      <Link 
+                        to="/department-admin/dashboard" 
+                        className={`nav-link${isActive('/department-admin/dashboard') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/department-admin/classes" 
+                        className={`nav-link${isActive('/department-admin/classes') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Classes
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/department-admin/faculty" 
+                        className={`nav-link${isActive('/department-admin/faculty') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Faculty
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/department-admin/subjects" 
+                        className={`nav-link${isActive('/department-admin/subjects') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Subjects
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/department-admin/students" 
+                        className={`nav-link${isActive('/department-admin/students') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Students
+                      </Link>
+                    </li>
                     <li className="navbar-nav-right">
                       <Link 
                         to="/profile" 
@@ -248,15 +321,7 @@ function Navigation({ user, logout }) {
                     Login
                   </Link>
                 </li>
-                <li className="navbar-nav-right">
-                  <Link 
-                    to="/register" 
-                    className="nav-link"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Register
-                  </Link>
-                </li>
+              
               </>
             )}
           </ul>
@@ -290,7 +355,7 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
-                <Route path="/super-admin/department-admins" element={<ManageDepartmentAdmins />} />
+                <Route path="/super-admin/department-admins" element={<ProtectedRoute allowedRoles={['superAdmin']}><ManageDepartmentAdmins /></ProtectedRoute>} />
                 <Route path="/super-admin/add-department-admin" element={
                   <ProtectedRoute roles={['admin']}>
                     <FirstLoginRedirect>
@@ -364,13 +429,14 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <FirstLoginRedirect>
-                      <PageWrapper><Profile /></PageWrapper>
-                    </FirstLoginRedirect>
-                  </ProtectedRoute>
-                } />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                
+                {/* Department Admin Routes */}
+                <Route path="/department-admin/dashboard" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentAdminDashboard /></ProtectedRoute>} />
+                <Route path="/department-admin/classes" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><Classes /></ProtectedRoute>} />
+                <Route path="/department-admin/faculty" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentFaculty /></ProtectedRoute>} />
+                <Route path="/department-admin/subjects" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentSubjects /></ProtectedRoute>} />
+                <Route path="/department-admin/students" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentStudents /></ProtectedRoute>} />
               </Routes>
             </AnimatePresence>
           </div>

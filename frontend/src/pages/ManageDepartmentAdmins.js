@@ -26,15 +26,6 @@ export default function ManageDepartmentAdmins() {
     password: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Only Admin can access this page
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/dashboard" />;
-  }
-
   const fetchData = async () => {
     try {
       const [adminsResponse, departmentsResponse] = await Promise.all([
@@ -50,6 +41,17 @@ export default function ManageDepartmentAdmins() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Only Admin can access this page
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/dashboard" />;
+  }
+
+
 
   const handleAddAdmin = async (e) => {
     e.preventDefault();

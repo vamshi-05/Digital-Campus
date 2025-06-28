@@ -10,6 +10,7 @@ const timetableRouter = require('./timetable');
 const attendanceRouter = require('./attendance');
 const noticeRouter = require('./notice');
 const complaintRouter = require('./complaint');
+const departmentAdminRouter = require('./departmentAdmin');
 // TODO: Add other routers (class, department, etc.)
 
 router.use('/auth', authRouter);
@@ -21,5 +22,6 @@ router.use('/timetable', timetableRouter);
 router.use('/attendance', attendanceRouter);
 router.use('/notice', noticeRouter);
 router.use('/complaint', complaintRouter);
+router.use('/department-admin', departmentAdminRouter);
 
 module.exports = router; 
