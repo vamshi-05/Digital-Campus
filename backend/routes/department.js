@@ -5,6 +5,8 @@ const auth = require('../middlewares/auth');
 
 router.post('/add', auth, departmentController.addDepartment);
 router.get('/all', auth, departmentController.getAllDepartments);
+router.put('/:id', auth, departmentController.updateDepartment);
+router.delete('/:id', auth, departmentController.deleteDepartment);
 router.post('/assign-admin', auth, departmentController.assignDepartmentAdmin);
 
 module.exports = router; 

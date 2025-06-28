@@ -1,10 +1,17 @@
-import React from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
-import { Container, Navbar, Nav } from 'react-bootstrap';
+import React, { useState } from 'react';
+import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import './styles/app.css';
+import './styles/index.css';
+import './styles/components.css';
+import './styles/layout.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import AddDepartmentAdmin from './pages/AddDepartmentAdmin';
+import ManageDepartments from './pages/ManageDepartments';
+import DepartmentsOverview from './pages/DepartmentsOverview';
 import Attendance from './pages/Attendance';
 import Classes from './pages/Classes';
 import Complaints from './pages/Complaints';
@@ -13,7 +20,11 @@ import Notices from './pages/Notices';
 import Timetable from './pages/Timetable';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
 import ProtectedRoute from './components/ProtectedRoute';
+import { handleError } from './utils/toast';
+import useAuth from './hooks/useAuth';
+import ManageDepartmentAdmins from './pages/ManageDepartmentAdmins';
 
 // Page placeholders
 const Home = () => <h2>Welcome to Digital Campus</h2>;
@@ -24,51 +35,348 @@ const pageVariants = {
   out: { opacity: 0, y: -20 },
 };
 
-function App() {
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    handleError(error, 'Something went wrong. Please refresh the page.');
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <h3>Something went wrong.</h3>
+          <button onClick={() => window.location.reload()}>
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Component to handle first login redirect
+function FirstLoginRedirect({ children }) {
+  const { user, needsPasswordChange } = useAuth();
+  
+  if (user && needsPasswordChange) {
+    return <Navigate to="/change-password" replace />;
+  }
+  
+  return children;
+}
+
+// Navigation component with role-based styling
+function Navigation({ user, logout }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
+  
+  const getNavbarClass = () => {
+    if (!user) return 'navbar';
+    switch (user.role) {
+      case 'admin':
+        return 'navbar navbar-admin';
+      case 'teacher':
+        return 'navbar navbar-teacher';
+      case 'student':
+        return 'navbar navbar-student';
+      default:
+        return 'navbar';
+    }
+  };
+
+  const isActive = (path) => location.pathname === path;
+
   return (
-    <>
-      <Navbar bg="primary" variant="dark" expand="lg" sticky="top">
-        <Container>
-          <Navbar.Brand as={Link} to="/">Digital Campus</Navbar.Brand>
-          <Navbar.Toggle aria-controls="basic-navbar-nav" />
-          <Navbar.Collapse id="basic-navbar-nav">
-            <Nav className="me-auto">
-              <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
-              <Nav.Link as={Link} to="/attendance">Attendance</Nav.Link>
-              <Nav.Link as={Link} to="/classes">Classes</Nav.Link>
-              <Nav.Link as={Link} to="/complaints">Complaints</Nav.Link>
-              <Nav.Link as={Link} to="/departments">Departments</Nav.Link>
-              <Nav.Link as={Link} to="/notices">Notices</Nav.Link>
-              <Nav.Link as={Link} to="/timetable">Timetable</Nav.Link>
-              <Nav.Link as={Link} to="/chat">Chat</Nav.Link>
-              <Nav.Link as={Link} to="/profile">Profile</Nav.Link>
-            </Nav>
-            <Nav>
-              <Nav.Link as={Link} to="/login">Login</Nav.Link>
-              <Nav.Link as={Link} to="/register">Register</Nav.Link>
-            </Nav>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
-      <Container className="my-4">
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
-            <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
-            <Route path="/register" element={<PageWrapper><Register /></PageWrapper>} />
-            <Route path="/dashboard" element={<ProtectedRoute><PageWrapper><Dashboard /></PageWrapper></ProtectedRoute>} />
-            <Route path="/attendance" element={<ProtectedRoute><PageWrapper><Attendance /></PageWrapper></ProtectedRoute>} />
-            <Route path="/classes" element={<ProtectedRoute><PageWrapper><Classes /></PageWrapper></ProtectedRoute>} />
-            <Route path="/complaints" element={<ProtectedRoute><PageWrapper><Complaints /></PageWrapper></ProtectedRoute>} />
-            <Route path="/departments" element={<ProtectedRoute><PageWrapper><Departments /></PageWrapper></ProtectedRoute>} />
-            <Route path="/notices" element={<ProtectedRoute><PageWrapper><Notices /></PageWrapper></ProtectedRoute>} />
-            <Route path="/timetable" element={<ProtectedRoute><PageWrapper><Timetable /></PageWrapper></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><PageWrapper><Chat /></PageWrapper></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><PageWrapper><Profile /></PageWrapper></ProtectedRoute>} />
-          </Routes>
-        </AnimatePresence>
-      </Container>
-    </>
+    <nav className={getNavbarClass()}>
+      <div className="navbar-container">
+        <Link to="#" className="navbar-brand">
+          Digital Campus
+        </Link>
+        
+        <button 
+          className="navbar-toggle"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle navigation"
+        >
+          ☰
+        </button>
+        
+        <div className={`navbar-collapse${isMenuOpen ? ' show' : ''}`}>
+          <ul className="navbar-nav">
+            {user ? (
+              <>
+                {user.role === 'admin' ? (
+                  <>
+                    <li className="navbar-nav-right">
+                      <Link 
+                        to="/profile" 
+                        className="nav-link"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {user.name}
+                      </Link>
+                    </li>
+                    <li className="navbar-nav-right">
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="nav-link logout-btn"
+                      >
+                        Logout
+                      </button>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      <Link 
+                        to="/dashboard" 
+                        className={`nav-link${isActive('/dashboard') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/attendance" 
+                        className={`nav-link${isActive('/attendance') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Attendance
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/classes" 
+                        className={`nav-link${isActive('/classes') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Classes
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/complaints" 
+                        className={`nav-link${isActive('/complaints') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Complaints
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/departments" 
+                        className={`nav-link${isActive('/departments') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Departments
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/notices" 
+                        className={`nav-link${isActive('/notices') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Notices
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/timetable" 
+                        className={`nav-link${isActive('/timetable') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Timetable
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/chat" 
+                        className={`nav-link${isActive('/chat') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Chat
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/profile" 
+                        className={`nav-link${isActive('/profile') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Profile
+                      </Link>
+                    </li>
+                    <li className="navbar-nav-right">
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="nav-link logout-btn"
+                      >
+                        Logout
+                      </button>
+                    </li>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <li className="navbar-nav-right">
+                  <Link 
+                    to="/login" 
+                    className="nav-link"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Login
+                  </Link>
+                </li>
+                <li className="navbar-nav-right">
+                  <Link 
+                    to="/register" 
+                    className="nav-link"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Register
+                  </Link>
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function App() {
+  const { user, logout } = useAuth();
+
+  return (
+    <ErrorBoundary>
+      <div className="app-container">
+        <Navigation user={user} logout={logout} />
+        <main className="main-content">
+          <div className="main-container">
+            <AnimatePresence mode="wait">
+              <Routes>
+                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+                <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
+                <Route path="/register" element={<ProtectedRoute roles={['admin']}><PageWrapper><Register /></PageWrapper></ProtectedRoute>} />
+                <Route path="/change-password" element={<ProtectedRoute><PageWrapper><ChangePassword /></PageWrapper></ProtectedRoute>} />
+                
+                {/* Super Admin Routes (Admin role) */}
+                <Route path="/super-admin/dashboard" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <FirstLoginRedirect>
+                      <PageWrapper><SuperAdminDashboard /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/super-admin/department-admins" element={<ManageDepartmentAdmins />} />
+                <Route path="/super-admin/add-department-admin" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <FirstLoginRedirect>
+                      <PageWrapper><AddDepartmentAdmin /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/super-admin/departments" element={<ManageDepartments />} />
+                <Route path="/super-admin/departments-overview" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <FirstLoginRedirect>
+                      <PageWrapper><DepartmentsOverview /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Regular Routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Dashboard /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/attendance" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Attendance /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/classes" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Classes /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/complaints" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Complaints /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/departments" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Departments /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/notices" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Notices /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/timetable" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Timetable /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/chat" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Chat /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Profile /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 }
 
