@@ -6,8 +6,8 @@ const User = require('../models/User');
 
 exports.addTimetable = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can add timetables.' });
     }
     
     const { classId, schedule, academicYear, semester } = req.body;
@@ -16,6 +16,11 @@ exports.addTimetable = async (req, res) => {
     const classData = await Class.findById(classId);
     if (!classData) {
       return res.status(404).json({ message: 'Class not found' });
+    }
+    
+    // Department admins can only add timetables for classes in their department
+    if (classData.department.toString() !== req.user.department) {
+      return res.status(403).json({ message: 'You can only add timetables for classes in your assigned department' });
     }
     
     // Check if timetable already exists for this class

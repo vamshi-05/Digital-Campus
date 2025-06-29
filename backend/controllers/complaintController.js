@@ -1,31 +1,438 @@
 const Complaint = require('../models/Complaint');
+const User = require('../models/User');
+const Department = require('../models/Department');
 
-exports.addComplaint = async (req, res) => {
+// Submit complaint
+exports.submitComplaint = async (req, res) => {
   try {
-    if (!['student', 'faculty'].includes(req.user.role)) return res.status(403).json({ message: 'Access denied' });
-    const { against, type, description } = req.body;
-    const complaint = new Complaint({ by: req.user.id, against, type, description });
+    const {
+      title,
+      description,
+      category,
+      priority,
+      against,
+      isAnonymous,
+      attachments
+    } = req.body;
+
+    const complaint = new Complaint({
+      complainant: req.user._id,
+      title,
+      description,
+      category,
+      priority,
+      against,
+      isAnonymous,
+      department: req.user.department,
+      attachments
+    });
+
     await complaint.save();
-    res.status(201).json(complaint);
+
+    // Auto-assign to department admin if available
+    const departmentAdmin = await User.findOne({
+      role: 'departmentAdmin',
+      department: req.user.department
+    });
+
+    if (departmentAdmin) {
+      complaint.assignedTo = departmentAdmin._id;
+      await complaint.save();
+    }
+
+    res.status(201).json({
+      message: 'Complaint submitted successfully',
+      complaint,
+      trackingNumber: complaint.trackingNumber
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-exports.getAllComplaints = async (req, res) => {
+// Get complaints (filtered by user role)
+exports.getComplaints = async (req, res) => {
   try {
-    if (!['admin', 'departmentAdmin'].includes(req.user.role)) return res.status(403).json({ message: 'Access denied' });
-    const complaints = await Complaint.find().populate('by').populate('against');
-    res.json(complaints);
+    const { status, category, priority, search, page = 1, limit = 10 } = req.query;
+    
+    let query = {};
+
+    // Filter based on user role
+    if (req.user.role === 'student' || req.user.role === 'faculty') {
+      query.complainant = req.user._id;
+    } else if (req.user.role === 'departmentAdmin') {
+      query.department = req.user.department;
+    } else if (req.user.role === 'admin') {
+      // Admin can see all complaints
+    }
+
+    if (status) query.status = status;
+    if (category) query.category = category;
+    if (priority) query.priority = priority;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { trackingNumber: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const complaints = await Complaint.find(query)
+      .populate('complainant', 'name email role')
+      .populate('against', 'name email role')
+      .populate('assignedTo', 'name email')
+      .populate('department', 'name')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Complaint.countDocuments(query);
+
+    res.json({
+      complaints,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-exports.getOwnComplaints = async (req, res) => {
+// Get complaint by ID
+exports.getComplaintById = async (req, res) => {
   try {
-    const complaints = await Complaint.find({ by: req.user.id }).populate('against');
-    res.json(complaints);
+    const { id } = req.params;
+
+    const complaint = await Complaint.findById(id)
+      .populate('complainant', 'name email role')
+      .populate('against', 'name email role')
+      .populate('assignedTo', 'name email')
+      .populate('department', 'name')
+      .populate('internalNotes.addedBy', 'name')
+      .populate('responses.respondedBy', 'name');
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check access permissions
+    if (req.user.role === 'student' || req.user.role === 'faculty') {
+      if (complaint.complainant.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    } else if (req.user.role === 'departmentAdmin') {
+      if (complaint.department.toString() !== req.user.department.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    res.json(complaint);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Update complaint status
+exports.updateComplaintStatus = async (req, res) => {
+  try {
+    if (!['admin', 'departmentAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { status, assignedTo } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check department access
+    if (req.user.role === 'departmentAdmin' && 
+        complaint.department.toString() !== req.user.department.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const updateData = { status };
+    
+    if (assignedTo) {
+      updateData.assignedTo = assignedTo;
+    }
+
+    // Set timestamps based on status
+    if (status === 'Resolved') {
+      updateData.resolvedAt = Date.now();
+      if (complaint.createdAt) {
+        const resolutionTime = (Date.now() - complaint.createdAt.getTime()) / (1000 * 60 * 60); // hours
+        updateData.resolutionTime = Math.round(resolutionTime);
+      }
+    } else if (status === 'Closed') {
+      updateData.closedAt = Date.now();
+    }
+
+    const updatedComplaint = await Complaint.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    res.json({
+      message: 'Complaint status updated successfully',
+      complaint: updatedComplaint
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Add internal note
+exports.addInternalNote = async (req, res) => {
+  try {
+    if (!['admin', 'departmentAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { note } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check department access
+    if (req.user.role === 'departmentAdmin' && 
+        complaint.department.toString() !== req.user.department.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    complaint.internalNotes.push({
+      note,
+      addedBy: req.user._id
+    });
+
+    await complaint.save();
+
+    res.json({
+      message: 'Internal note added successfully',
+      complaint
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Add response
+exports.addResponse = async (req, res) => {
+  try {
+    if (!['admin', 'departmentAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { response } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check department access
+    if (req.user.role === 'departmentAdmin' && 
+        complaint.department.toString() !== req.user.department.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    complaint.responses.push({
+      response,
+      respondedBy: req.user._id
+    });
+
+    // Update status to In Progress if it was Open
+    if (complaint.status === 'Open') {
+      complaint.status = 'In Progress';
+    }
+
+    await complaint.save();
+
+    res.json({
+      message: 'Response added successfully',
+      complaint
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Escalate complaint
+exports.escalateComplaint = async (req, res) => {
+  try {
+    if (!['admin', 'departmentAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { escalatedTo } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check department access
+    if (req.user.role === 'departmentAdmin' && 
+        complaint.department.toString() !== req.user.department.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    complaint.escalatedTo = escalatedTo;
+    complaint.escalatedAt = Date.now();
+    complaint.status = 'Under Review';
+
+    await complaint.save();
+
+    res.json({
+      message: 'Complaint escalated successfully',
+      complaint
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Rate complaint resolution
+exports.rateComplaint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { satisfactionRating, satisfactionComment } = req.body;
+
+    const complaint = await Complaint.findById(id);
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Only complainant can rate
+    if (complaint.complainant.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only complainant can rate the resolution' });
+    }
+
+    // Only resolved complaints can be rated
+    if (complaint.status !== 'Resolved') {
+      return res.status(400).json({ message: 'Only resolved complaints can be rated' });
+    }
+
+    complaint.satisfactionRating = satisfactionRating;
+    complaint.satisfactionComment = satisfactionComment;
+
+    await complaint.save();
+
+    res.json({
+      message: 'Complaint rated successfully',
+      complaint
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get complaint analytics
+exports.getComplaintAnalytics = async (req, res) => {
+  try {
+    if (!['admin', 'departmentAdmin'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { startDate, endDate } = req.query;
+    let dateFilter = {};
+
+    if (startDate && endDate) {
+      dateFilter = {
+        createdAt: {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate)
+        }
+      };
+    }
+
+    const departmentFilter = req.user.role === 'departmentAdmin' 
+      ? { department: req.user.department } 
+      : {};
+
+    const analytics = await Complaint.aggregate([
+      { $match: { ...dateFilter, ...departmentFilter } },
+      {
+        $group: {
+          _id: null,
+          totalComplaints: { $sum: 1 },
+          averageResolutionTime: { $avg: '$resolutionTime' },
+          byStatus: {
+            $push: {
+              status: '$status',
+              count: 1
+            }
+          },
+          byCategory: {
+            $push: {
+              category: '$category',
+              count: 1
+            }
+          },
+          byPriority: {
+            $push: {
+              priority: '$priority',
+              count: 1
+            }
+          },
+          averageSatisfaction: { $avg: '$satisfactionRating' }
+        }
+      }
+    ]);
+
+    res.json(analytics[0] || {
+      totalComplaints: 0,
+      averageResolutionTime: 0,
+      byStatus: [],
+      byCategory: [],
+      byPriority: [],
+      averageSatisfaction: 0
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Search complaints by tracking number
+exports.searchByTrackingNumber = async (req, res) => {
+  try {
+    const { trackingNumber } = req.query;
+
+    if (!trackingNumber) {
+      return res.status(400).json({ message: 'Tracking number is required' });
+    }
+
+    const complaint = await Complaint.findOne({ trackingNumber })
+      .populate('complainant', 'name email role')
+      .populate('against', 'name email role')
+      .populate('assignedTo', 'name email')
+      .populate('department', 'name');
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Check access permissions
+    if (req.user.role === 'student' || req.user.role === 'faculty') {
+      if (complaint.complainant.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    } else if (req.user.role === 'departmentAdmin') {
+      if (complaint.department.toString() !== req.user.department.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    res.json(complaint);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

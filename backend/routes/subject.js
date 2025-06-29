@@ -3,8 +3,7 @@ const router = express.Router();
 const subjectController = require('../controllers/subjectController');
 const auth = require('../middlewares/auth');
 
-router.post('/add', auth, subjectController.addSubject);
+// Only viewing subjects is allowed for all authenticated users
 router.get('/all', auth, subjectController.getAllSubjects);
-router.post('/assign-faculty', auth, subjectController.assignFaculty);
 
 module.exports = router; 

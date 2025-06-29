@@ -11,7 +11,7 @@ const DepartmentStudents = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterClass, setFilterClass] = useState('');
-  const [filterYear, setFilterYear] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -24,7 +24,7 @@ const DepartmentStudents = () => {
     phone: '',
     rollNumber: '',
     class: '',
-    year: '',
+    semester: '',
     department: '',
     address: '',
     parentName: '',
@@ -41,7 +41,7 @@ const DepartmentStudents = () => {
         axios.get('/department-admin/students'),
         axios.get('/department-admin/classes-list')
       ]);
-      
+   
       setStudents(studentsRes.data);
       setClasses(classesRes.data);
     } catch (error) {
@@ -62,7 +62,7 @@ const DepartmentStudents = () => {
         phone: '',
         rollNumber: '',
         class: '',
-        year: '',
+        semester: '',
         department: '',
         address: '',
         parentName: '',
@@ -86,7 +86,7 @@ const DepartmentStudents = () => {
         phone: '',
         rollNumber: '',
         class: '',
-        year: '',
+        semester: '',
         department: '',
         address: '',
         parentName: '',
@@ -128,7 +128,7 @@ const DepartmentStudents = () => {
       phone: student.phone,
       rollNumber: student.rollNumber,
       class: student.class,
-      year: student.year,
+      semester: student.semester,
       department: student.department,
       address: student.address,
       parentName: student.parentName,
@@ -152,13 +152,13 @@ const DepartmentStudents = () => {
                          student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.rollNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = !filterClass || student.class === filterClass;
-    const matchesYear = !filterYear || student.year === filterYear;
+    const matchesSemester = !filterSemester || student.semester === filterSemester;
     const matchesStatus = !filterStatus || student.status === filterStatus;
     
-    return matchesSearch && matchesClass && matchesYear && matchesStatus;
+    return matchesSearch && matchesClass && matchesSemester && matchesStatus;
   });
 
-  const years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+  const semesters = ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
 
   if (loading) {
     return (
@@ -190,7 +190,7 @@ const DepartmentStudents = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+        
           <div className="filters">
             <select
               value={filterClass}
@@ -199,19 +199,19 @@ const DepartmentStudents = () => {
               <option value="">All Classes</option>
               {classes.map(cls => (
                 <option key={cls._id} value={cls.name}>
-                  {cls.name}
+                  {cls.name} - {cls.semester}
                 </option>
               ))}
             </select>
             
             <select
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
+              value={filterSemester}
+              onChange={(e) => setFilterSemester(e.target.value)}
             >
-              <option value="">All Years</option>
-              {years.map(year => (
-                <option key={year} value={year}>
-                  {year}
+              <option value="">All Semesters</option>
+              {semesters.map(semester => (
+                <option key={semester} value={semester}>
+                  {semester}
                 </option>
               ))}
             </select>
@@ -280,7 +280,7 @@ const DepartmentStudents = () => {
                 <td>
                   <div className="academic-info">
                     <p>{student.class}</p>
-                    <p>{student.year}</p>
+                    <p>{student.semester}</p>
                   </div>
                 </td>
                 <td>
@@ -396,24 +396,24 @@ const DepartmentStudents = () => {
                   >
                     <option value="">Select Class</option>
                     {classes.map(cls => (
-                      <option key={cls._id} value={cls.name}>
-                        {cls.name}
+                      <option key={cls._id} value={`${cls.name}-${cls.semester}`}>
+                        {cls.name} - {cls.semester}
                       </option>
                     ))}
                   </select>
                 </div>
                 
                 <div className="form-group">
-                  <label>Year</label>
+                  <label>Semester</label>
                   <select
-                    value={formData.year}
-                    onChange={(e) => setFormData({...formData, year: e.target.value})}
+                    value={formData.semester}
+                    onChange={(e) => setFormData({...formData, semester: e.target.value})}
                     required
                   >
-                    <option value="">Select Year</option>
-                    {years.map(year => (
-                      <option key={year} value={year}>
-                        {year}
+                    <option value="">Select Semester</option>
+                    {semesters.map(semester => (
+                      <option key={semester} value={semester}>
+                        {semester}
                       </option>
                     ))}
                   </select>
@@ -531,24 +531,24 @@ const DepartmentStudents = () => {
                   >
                     <option value="">Select Class</option>
                     {classes.map(cls => (
-                      <option key={cls._id} value={cls.name}>
-                        {cls.name}
+                      <option key={cls._id} value={`${cls.name}-${cls.semester}`}>
+                        {cls.name} - {cls.semester}
                       </option>
                     ))}
                   </select>
                 </div>
                 
                 <div className="form-group">
-                  <label>Year</label>
+                  <label>Semester</label>
                   <select
-                    value={formData.year}
-                    onChange={(e) => setFormData({...formData, year: e.target.value})}
+                    value={formData.semester}
+                    onChange={(e) => setFormData({...formData, semester: e.target.value})}
                     required
                   >
-                    <option value="">Select Year</option>
-                    {years.map(year => (
-                      <option key={year} value={year}>
-                        {year}
+                    <option value="">Select Semester</option>
+                    {semesters.map(semester => (
+                      <option key={semester} value={semester}>
+                        {semester}
                       </option>
                     ))}
                   </select>

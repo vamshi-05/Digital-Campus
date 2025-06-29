@@ -30,6 +30,13 @@ import DepartmentClasses from './pages/DepartmentClasses';
 import DepartmentFaculty from './pages/DepartmentFaculty';
 import DepartmentSubjects from './pages/DepartmentSubjects';
 import DepartmentStudents from './pages/DepartmentStudents';
+import Grades from './pages/Grades';
+
+// Enhanced pages
+import NoticeBoard from './pages/NoticeBoard';
+import ComplaintsCenter from './pages/ComplaintsCenter';
+import ChatInterface from './pages/ChatInterface';
+import TimetableManagement from './pages/TimetableManagement';
 
 // Page placeholders
 const Home = () => <h2>Welcome to Digital Campus</h2>;
@@ -271,6 +278,24 @@ function Navigation({ user, logout }) {
                     </li>
                     <li>
                       <Link 
+                        to="/notice-board" 
+                        className={`nav-link${isActive('/notice-board') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Notice Board
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/complaints-center" 
+                        className={`nav-link${isActive('/complaints-center') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Complaints Center
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
                         to="/timetable" 
                         className={`nav-link${isActive('/timetable') ? ' active' : ''}`}
                         onClick={() => setIsMenuOpen(false)}
@@ -280,11 +305,38 @@ function Navigation({ user, logout }) {
                     </li>
                     <li>
                       <Link 
+                        to="/timetable-management" 
+                        className={`nav-link${isActive('/timetable-management') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Timetable Management
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
                         to="/chat" 
                         className={`nav-link${isActive('/chat') ? ' active' : ''}`}
                         onClick={() => setIsMenuOpen(false)}
                       >
                         Chat
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/chat-interface" 
+                        className={`nav-link${isActive('/chat-interface') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Chat Interface
+                      </Link>
+                    </li>
+                    <li>
+                      <Link 
+                        to="/grades" 
+                        className={`nav-link${isActive('/grades') ? ' active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Grades
                       </Link>
                     </li>
                     <li>
@@ -415,10 +467,31 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
+                <Route path="/notice-board" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><NoticeBoard /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/complaints-center" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><ComplaintsCenter /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
                 <Route path="/timetable" element={
                   <ProtectedRoute>
                     <FirstLoginRedirect>
                       <PageWrapper><Timetable /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/timetable-management" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><TimetableManagement /></PageWrapper>
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
@@ -429,11 +502,25 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
+                <Route path="/chat-interface" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><ChatInterface /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
+                <Route path="/grades" element={
+                  <ProtectedRoute>
+                    <FirstLoginRedirect>
+                      <PageWrapper><Grades /></PageWrapper>
+                    </FirstLoginRedirect>
+                  </ProtectedRoute>
+                } />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 
                 {/* Department Admin Routes */}
                 <Route path="/department-admin/dashboard" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentAdminDashboard /></ProtectedRoute>} />
-                <Route path="/department-admin/classes" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><Classes /></ProtectedRoute>} />
+                <Route path="/department-admin/classes" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentClasses /></ProtectedRoute>} />
                 <Route path="/department-admin/faculty" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentFaculty /></ProtectedRoute>} />
                 <Route path="/department-admin/subjects" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentSubjects /></ProtectedRoute>} />
                 <Route path="/department-admin/students" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentStudents /></ProtectedRoute>} />

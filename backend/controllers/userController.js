@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Department = require('../models/Department');
 const Class = require('../models/Class');
+const Subject = require('../models/Subject');
 const bcrypt = require('bcrypt');
 
 exports.getProfile = async (req, res) => {
@@ -93,8 +94,8 @@ exports.getAllStudents = async (req, res) => {
 
 exports.createUser = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can create users.' });
     }
     
     const { 
@@ -110,7 +111,7 @@ exports.createUser = async (req, res) => {
       experience,
       designation,
       rollNumber,
-      year,
+      semester,
       address,
       parentName,
       parentPhone
@@ -122,6 +123,12 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
     
+    // Department admins can only create users for their own department
+    const targetDepartment = req.user.department;
+    if (department && department !== targetDepartment) {
+      return res.status(403).json({ message: 'You can only create users for your assigned department' });
+    }
+    
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -131,7 +138,7 @@ exports.createUser = async (req, res) => {
       email,
       password: hashedPassword,
       role,
-      department,
+      department: targetDepartment,
       class: classId,
       phone,
       specialization,
@@ -139,7 +146,7 @@ exports.createUser = async (req, res) => {
       experience,
       designation,
       rollNumber,
-      year,
+      semester,
       address,
       parentName,
       parentPhone
@@ -147,14 +154,15 @@ exports.createUser = async (req, res) => {
     
     await user.save();
     
-    // Update department relationships based on role
-    if (department) {
-      if (role === 'departmentAdmin') {
-        await Department.findByIdAndUpdate(
-          department,
-          { $addToSet: { admins: user._id } }
-        );
-      }
+    // Update Department model based on role
+    if (role === 'student') {
+      await Department.findByIdAndUpdate(targetDepartment, {
+        $push: { students: user._id }
+      });
+    } else if (role === 'faculty') {
+      await Department.findByIdAndUpdate(targetDepartment, {
+        $push: { faculty: user._id }
+      });
     }
     
     // If student is assigned to a class, update class student count
@@ -182,8 +190,8 @@ exports.createUser = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can update users.' });
     }
     
     const { id } = req.params;
@@ -195,17 +203,9 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Handle department admin changes
-    if (updateData.department && updateData.department !== currentUser.department?.toString()) {
-      // Remove from old department
-      if (currentUser.department && currentUser.role === 'departmentAdmin') {
-        await Department.findByIdAndUpdate(currentUser.department, { $pull: { admins: id } });
-      }
-      
-      // Add to new department
-      if (updateData.role === 'departmentAdmin') {
-        await Department.findByIdAndUpdate(updateData.department, { $addToSet: { admins: id } });
-      }
+    // Department admins can only update users in their department
+    if (currentUser.department.toString() !== req.user.department) {
+      return res.status(403).json({ message: 'You can only update users in your assigned department' });
     }
     
     // Handle class changes for students
@@ -248,8 +248,8 @@ exports.updateUser = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can delete users.' });
     }
     
     const { id } = req.params;
@@ -260,9 +260,9 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Remove user from department relationships
-    if (user.department && user.role === 'departmentAdmin') {
-      await Department.findByIdAndUpdate(user.department, { $pull: { admins: id } });
+    // Department admins can only delete users in their department
+    if (user.department.toString() !== req.user.department) {
+      return res.status(403).json({ message: 'You can only delete users in your assigned department' });
     }
     
     // Remove student from class
@@ -271,6 +271,29 @@ exports.deleteUser = async (req, res) => {
         $pull: { students: id },
         $inc: { currentStrength: -1 }
       });
+    }
+    
+    // Remove from department based on role
+    if (user.role === 'student') {
+      await Department.findByIdAndUpdate(user.department, {
+        $pull: { students: id }
+      });
+    } else if (user.role === 'faculty') {
+      await Department.findByIdAndUpdate(user.department, {
+        $pull: { faculty: id }
+      });
+      
+      // Remove from subjects
+      await Subject.updateMany(
+        { faculty: id },
+        { $pull: { faculty: id } }
+      );
+      
+      // Remove from classes where they are class teacher
+      await Class.updateMany(
+        { classTeacher: id },
+        { $unset: { classTeacher: 1 } }
+      );
     }
     
     // If user is a class teacher, update their status

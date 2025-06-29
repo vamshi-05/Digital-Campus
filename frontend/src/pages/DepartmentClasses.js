@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from '../api/axios';
+import { motion } from 'framer-motion';
+import api from '../api/axios';
 import useAuth from '../hooks/useAuth';
 import '../styles/department-classes.css';
 
@@ -8,23 +9,21 @@ const DepartmentClasses = () => {
   const { user } = useAuth();
   const [classes, setClasses] = useState([]);
   const [faculty, setFaculty] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterSubject, setFilterSubject] = useState('');
-  const [filterFaculty, setFilterFaculty] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterSemester, setFilterSemester] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    subject: '',
-    faculty: '',
-    schedule: '',
-    room: '',
-    capacity: '',
-    description: ''
+    classTeacherId: '',
+    academicYear: '',
+    semester: '',
+    capacity: 60,
+    status: 'active'
   });
 
   useEffect(() => {
@@ -33,15 +32,16 @@ const DepartmentClasses = () => {
 
   const fetchData = async () => {
     try {
-      const [classesRes, facultyRes, subjectsRes] = await Promise.all([
-        axios.get('/department-admin/classes'),
-        axios.get('/department-admin/faculty-list'),
-        axios.get('/department-admin/subjects-list')
+      setLoading(true);
+      console.log(user);
+      // For department admins, fetch only their department's data
+      const [classesRes, facultyRes] = await Promise.all([
+        api.get(`/class/all?departmentId=${user.department}`),
+        api.get(`/user/faculty?departmentId=${user.department}`)
       ]);
       
       setClasses(classesRes.data);
       setFaculty(facultyRes.data);
-      setSubjects(subjectsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -52,16 +52,21 @@ const DepartmentClasses = () => {
   const handleAddClass = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/department-admin/classes', formData);
+      // Automatically assign the department admin's department
+      const classData = {
+        ...formData,
+        departmentId: user.department
+      };
+      
+      await api.post('/class/add', classData);
       setShowAddModal(false);
       setFormData({
         name: '',
-        subject: '',
-        faculty: '',
-        schedule: '',
-        room: '',
-        capacity: '',
-        description: ''
+        classTeacherId: '',
+        academicYear: '',
+        semester: '',
+        capacity: 60,
+        status: 'active'
       });
       fetchData();
     } catch (error) {
@@ -72,17 +77,16 @@ const DepartmentClasses = () => {
   const handleEditClass = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`/department-admin/classes/${selectedClass._id}`, formData);
+      await api.put(`/class/${selectedClass._id}`, formData);
       setShowEditModal(false);
       setSelectedClass(null);
       setFormData({
         name: '',
-        subject: '',
-        faculty: '',
-        schedule: '',
-        room: '',
-        capacity: '',
-        description: ''
+        classTeacherId: '',
+        academicYear: '',
+        semester: '',
+        capacity: 60,
+        status: 'active'
       });
       fetchData();
     } catch (error) {
@@ -92,7 +96,7 @@ const DepartmentClasses = () => {
 
   const handleDeleteClass = async () => {
     try {
-      await axios.delete(`/department-admin/classes/${selectedClass._id}`);
+      await api.delete(`/class/${selectedClass._id}`);
       setShowDeleteModal(false);
       setSelectedClass(null);
       fetchData();
@@ -101,33 +105,32 @@ const DepartmentClasses = () => {
     }
   };
 
-  const openEditModal = (cls) => {
-    setSelectedClass(cls);
+  const openEditModal = (classData) => {
+    setSelectedClass(classData);
     setFormData({
-      name: cls.name,
-      subject: cls.subject,
-      faculty: cls.faculty,
-      schedule: cls.schedule,
-      room: cls.room,
-      capacity: cls.capacity,
-      description: cls.description
+      name: classData.name,
+      classTeacherId: classData.classTeacher?._id || '',
+      academicYear: classData.academicYear,
+      semester: classData.semester,
+      capacity: classData.capacity,
+      status: classData.status
     });
     setShowEditModal(true);
   };
 
-  const openDeleteModal = (cls) => {
-    setSelectedClass(cls);
+  const openDeleteModal = (classData) => {
+    setSelectedClass(classData);
     setShowDeleteModal(true);
   };
 
   const filteredClasses = classes.filter(cls => {
-    const matchesSearch = cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cls.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cls.faculty.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = !filterSubject || cls.subject === filterSubject;
-    const matchesFaculty = !filterFaculty || cls.faculty === filterFaculty;
+    const matchesSearch = cls.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cls.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (cls.classTeacher?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesYear = !filterYear || cls.academicYear === filterYear;
+    const matchesSemester = !filterSemester || cls.semester === filterSemester;
     
-    return matchesSearch && matchesSubject && matchesFaculty;
+    return matchesSearch && matchesYear && matchesSemester;
   });
 
   if (loading) {
@@ -143,7 +146,7 @@ const DepartmentClasses = () => {
       <div className="classes-header">
         <div className="header-content">
           <h1>Department Classes</h1>
-          <p>Manage classes for {user.department}</p>
+          <p>Manage class sections in your department</p>
         </div>
         <Link to="/department-admin/dashboard" className="back-btn">
           ← Back to Dashboard
@@ -163,27 +166,29 @@ const DepartmentClasses = () => {
           
           <div className="filters">
             <select
-              value={filterSubject}
-              onChange={(e) => setFilterSubject(e.target.value)}
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
             >
-              <option value="">All Subjects</option>
-              {subjects.map(subject => (
-                <option key={subject._id} value={subject.name}>
-                  {subject.name}
-                </option>
-              ))}
+              <option value="">All Years</option>
+              <option value="2025-26">2025-26</option>
+              <option value="2024-25">2024-25</option>
+              <option value="2023-24">2023-24</option>
+              <option value="2022-23">2022-23</option>
             </select>
             
             <select
-              value={filterFaculty}
-              onChange={(e) => setFilterFaculty(e.target.value)}
+              value={filterSemester}
+              onChange={(e) => setFilterSemester(e.target.value)}
             >
-              <option value="">All Faculty</option>
-              {faculty.map(f => (
-                <option key={f._id} value={f.name}>
-                  {f.name}
-                </option>
-              ))}
+              <option value="">All Semesters</option>
+              <option value="1st Semester">1st Semester</option>
+              <option value="2nd Semester">2nd Semester</option>
+              <option value="3rd Semester">3rd Semester</option>
+              <option value="4th Semester">4th Semester</option>
+              <option value="5th Semester">5th Semester</option>
+              <option value="6th Semester">6th Semester</option>
+              <option value="7th Semester">7th Semester</option>
+              <option value="8th Semester">8th Semester</option>
             </select>
           </div>
         </div>
@@ -198,16 +203,20 @@ const DepartmentClasses = () => {
 
       <div className="stats-cards">
         <div className="stat-card">
-          <h3>{classes.length}</h3>
-          <p>Total Classes</p>
+          <h3>Total Classes</h3>
+          <p>{classes.length}</p>
         </div>
         <div className="stat-card">
-          <h3>{subjects.length}</h3>
-          <p>Subjects</p>
+          <h3>Active Classes</h3>
+          <p>{classes.filter(cls => cls.status === 'active').length}</p>
         </div>
         <div className="stat-card">
-          <h3>{faculty.length}</h3>
-          <p>Faculty Members</p>
+          <h3>Total Students</h3>
+          <p>{classes.reduce((total, cls) => total + (cls.students?.length || 0), 0)}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Faculty Members</h3>
+          <p>{faculty.length}</p>
         </div>
       </div>
 
@@ -216,11 +225,11 @@ const DepartmentClasses = () => {
           <thead>
             <tr>
               <th>Class Name</th>
-              <th>Subject</th>
-              <th>Faculty</th>
-              <th>Schedule</th>
-              <th>Room</th>
-              <th>Capacity</th>
+              <th>Class Teacher</th>
+              <th>Academic Year</th>
+              <th>Semester</th>
+              {/* <th>Capacity</th> */}
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -233,11 +242,11 @@ const DepartmentClasses = () => {
                     {cls.description && <p>{cls.description}</p>}
                   </div>
                 </td>
-                <td>{cls.subject}</td>
-                <td>{cls.faculty}</td>
-                <td>{cls.schedule}</td>
-                <td>{cls.room}</td>
-                <td>{cls.capacity}</td>
+                <td>{cls.classTeacher?.name}</td>
+                <td>{cls.academicYear}</td>
+                <td>{cls.semester}</td>
+                {/* <td>{cls.capacity}</td> */}
+                <td>{cls.status}</td>
                 <td>
                   <div className="actions">
                     <button
@@ -274,7 +283,14 @@ const DepartmentClasses = () => {
               <h2>Add New Class</h2>
               <button
                 className="close-btn"
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {setShowAddModal(false); setFormData({
+                  name: '',
+                  classTeacherId: '',
+                  academicYear: '',
+                  semester: '',
+                  capacity: 60,
+                  status: 'active'
+                });}}
               >
                 ×
               </button>
@@ -291,61 +307,56 @@ const DepartmentClasses = () => {
               </div>
               
               <div className="form-group">
-                <label>Subject</label>
+                <label>Class Teacher</label>
                 <select
-                  value={formData.subject}
-                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                  required
+                  value={formData.classTeacherId}
+                  onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
+                  
                 >
-                  <option value="">Select Subject</option>
-                  {subjects.map(subject => (
-                    <option key={subject._id} value={subject.name}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label>Faculty</label>
-                <select
-                  value={formData.faculty}
-                  onChange={(e) => setFormData({...formData, faculty: e.target.value})}
-                  required
-                >
-                  <option value="">Select Faculty</option>
+                  <option value="-">Select Class Teacher (Can add after )</option>
                   {faculty.map(f => (
-                    <option key={f._id} value={f.name}>
+                    <option key={f._id} value={f._id}>
                       {f.name}
                     </option>
                   ))}
                 </select>
               </div>
               
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Schedule</label>
-                  <input
-                    type="text"
-                    value={formData.schedule}
-                    onChange={(e) => setFormData({...formData, schedule: e.target.value})}
-                    placeholder="e.g., Mon, Wed, Fri 10:00 AM"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Room</label>
-                  <input
-                    type="text"
-                    value={formData.room}
-                    onChange={(e) => setFormData({...formData, room: e.target.value})}
-                    required
-                  />
-                </div>
+              <div className="form-group">
+                <label>Academic Year</label>
+                <select
+                  value={formData.academicYear}
+                  onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
+                  required
+                >
+                  <option value="">Select Academic Year</option>
+                  <option value="2025-26">2025-26</option>
+                  <option value="2024-25">2024-25</option>
+                  <option value="2023-24">2023-24</option>
+                  <option value="2022-23">2022-23</option>
+                </select>
               </div>
               
               <div className="form-group">
+                <label>Semester</label>
+                <select
+                  value={formData.semester}
+                  onChange={(e) => setFormData({...formData, semester: e.target.value})}
+                  required
+                >
+                  <option value="">Select Semester</option>
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="3rd Semester">3rd Semester</option>
+                  <option value="4th Semester">4th Semester</option>
+                  <option value="5th Semester">5th Semester</option>
+                  <option value="6th Semester">6th Semester</option>
+                  <option value="7th Semester">7th Semester</option>
+                  <option value="8th Semester">8th Semester</option>
+                </select>
+              </div>
+              
+              {/* <div className="form-group">
                 <label>Capacity</label>
                 <input
                   type="number"
@@ -353,15 +364,19 @@ const DepartmentClasses = () => {
                   onChange={(e) => setFormData({...formData, capacity: e.target.value})}
                   required
                 />
-              </div>
+              </div> */}
               
               <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows="3"
-                />
+                <label>Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
               
               <div className="modal-actions">
@@ -383,7 +398,14 @@ const DepartmentClasses = () => {
               <h2>Edit Class</h2>
               <button
                 className="close-btn"
-                onClick={() => setShowEditModal(false)}
+                onClick={() => {setFormData({
+                  name: '',
+                  classTeacherId: '',
+                  academicYear: '',
+                  semester: '',
+                  capacity: 60,
+                  status: 'active'
+                }); setShowEditModal(false)}}
               >
                 ×
               </button>
@@ -400,61 +422,56 @@ const DepartmentClasses = () => {
               </div>
               
               <div className="form-group">
-                <label>Subject</label>
+                <label>Class Teacher</label>
                 <select
-                  value={formData.subject}
-                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                  value={formData.classTeacherId}
+                  onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
                   required
                 >
-                  <option value="">Select Subject</option>
-                  {subjects.map(subject => (
-                    <option key={subject._id} value={subject.name}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label>Faculty</label>
-                <select
-                  value={formData.faculty}
-                  onChange={(e) => setFormData({...formData, faculty: e.target.value})}
-                  required
-                >
-                  <option value="">Select Faculty</option>
+                  <option value="">Select Class Teacher</option>
                   {faculty.map(f => (
-                    <option key={f._id} value={f.name}>
+                    <option key={f._id} value={f._id}>
                       {f.name}
                     </option>
                   ))}
                 </select>
               </div>
               
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Schedule</label>
-                  <input
-                    type="text"
-                    value={formData.schedule}
-                    onChange={(e) => setFormData({...formData, schedule: e.target.value})}
-                    placeholder="e.g., Mon, Wed, Fri 10:00 AM"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Room</label>
-                  <input
-                    type="text"
-                    value={formData.room}
-                    onChange={(e) => setFormData({...formData, room: e.target.value})}
-                    required
-                  />
-                </div>
+              <div className="form-group">
+                <label>Academic Year</label>
+                <select
+                  value={formData.academicYear}
+                  onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
+                  required
+                >
+                  <option value="">Select Academic Year</option>
+                  <option value="2025-26">2025-26</option>
+                  <option value="2024-25">2024-25</option>
+                  <option value="2023-24">2023-24</option>
+                  <option value="2022-23">2022-23</option>
+                </select>
               </div>
               
               <div className="form-group">
+                <label>Semester</label>
+                <select
+                  value={formData.semester}
+                  onChange={(e) => setFormData({...formData, semester: e.target.value})}
+                  required
+                >
+                  <option value="">Select Semester</option>
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="3rd Semester">3rd Semester</option>
+                  <option value="4th Semester">4th Semester</option>
+                  <option value="5th Semester">5th Semester</option>
+                  <option value="6th Semester">6th Semester</option>
+                  <option value="7th Semester">7th Semester</option>
+                  <option value="8th Semester">8th Semester</option>
+                </select>
+              </div>
+              
+              {/* <div className="form-group">
                 <label>Capacity</label>
                 <input
                   type="number"
@@ -462,15 +479,19 @@ const DepartmentClasses = () => {
                   onChange={(e) => setFormData({...formData, capacity: e.target.value})}
                   required
                 />
-              </div>
+              </div> */}
               
               <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows="3"
-                />
+                <label>Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
               
               <div className="modal-actions">

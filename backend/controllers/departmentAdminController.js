@@ -89,38 +89,62 @@ const getClasses = async (req, res) => {
 
 const createClass = async (req, res) => {
   try {
-    const { name, subject, faculty, schedule, room, capacity, description } = req.body;
+    const { name, classTeacherId, academicYear, semester, capacity } = req.body;
     const departmentId = req.user.department;
 
-    // Find faculty user
-    const facultyUser = await User.findOne({ 
-      name: faculty, 
-      role: 'faculty', 
-      department: departmentId 
+    // Check if class with same name already exists in this department
+    const existingClass = await Class.findOne({ 
+      name, 
+      department: departmentId,
+      academicYear,
+      semester
     });
-
-    if (!facultyUser) {
-      return res.status(400).json({ message: 'Faculty not found' });
+    if (existingClass) {
+      return res.status(400).json({ 
+        message: 'Class with this name already exists in this department for the given academic year and semester' 
+      });
     }
 
-    // Parse program and specialization from name
-    const [program, specialization] = name.split(' ');
+    // Get department info for fullName
+    const department = await Department.findById(departmentId);
+    if (!department) {
+      return res.status(404).json({ message: 'Department not found' });
+    }
+
+    // Create full name (e.g., "CSE-A")
+    const fullName = `${department.code}-${name}`;
     
     const newClass = new Class({
-      name: name,
-      program: program || 'B.Tech',
-      specialization: specialization || subject,
-      classTeacher: facultyUser._id,
+      name,
+      fullName,
       department: departmentId,
+      academicYear,
+      semester,
       capacity: capacity || 60,
-      description: description,
-      sections: [{
-        name: 'A',
-        students: []
-      }]
+      status: 'active'
     });
 
+    // Add class teacher if provided
+    if (classTeacherId && classTeacherId !== "-") {
+      const facultyUser = await User.findOne({ 
+        _id: classTeacherId, 
+        role: 'faculty', 
+        department: departmentId 
+      });
+      
+      if (facultyUser) {
+        newClass.classTeacher = facultyUser._id;
+        // Update faculty user to mark as class teacher
+        await User.findByIdAndUpdate(facultyUser._id, { isClassTeacher: true });
+      }
+    }
+
     await newClass.save();
+
+    // Update Department model - add class to department
+    await Department.findByIdAndUpdate(departmentId, {
+      $push: { classes: newClass._id }
+    });
 
     res.status(201).json({ message: 'Class created successfully', class: newClass });
   } catch (error) {
@@ -132,7 +156,7 @@ const createClass = async (req, res) => {
 const updateClass = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, subject, faculty, schedule, room, capacity, description } = req.body;
+    const { name, classTeacherId, academicYear, semester, capacity, status } = req.body;
     const departmentId = req.user.department;
 
     const classToUpdate = await Class.findOne({ _id: id, department: departmentId });
@@ -140,26 +164,62 @@ const updateClass = async (req, res) => {
       return res.status(404).json({ message: 'Class not found' });
     }
 
-    // Find faculty user
-    const facultyUser = await User.findOne({ 
-      name: faculty, 
-      role: 'faculty', 
-      department: departmentId 
+    // Check if class with same name already exists (excluding current class)
+    const existingClass = await Class.findOne({ 
+      name, 
+      department: departmentId,
+      academicYear,
+      semester,
+      _id: { $ne: id }
     });
-
-    if (!facultyUser) {
-      return res.status(400).json({ message: 'Faculty not found' });
+    if (existingClass) {
+      return res.status(400).json({ 
+        message: 'Class with this name already exists in this department for the given academic year and semester' 
+      });
     }
 
-    // Parse program and specialization from name
-    const [program, specialization] = name.split(' ');
+    // Get department info for fullName
+    const department = await Department.findById(departmentId);
+    if (!department) {
+      return res.status(404).json({ message: 'Department not found' });
+    }
+
+    // Create full name (e.g., "CSE-A")
+    const fullName = `${department.code}-${name}`;
+
+    // Handle class teacher changes
+    const oldClassTeacherId = classToUpdate.classTeacher;
+    let newClassTeacherId = null;
+
+    if (classTeacherId && classTeacherId !== "-") {
+      const facultyUser = await User.findOne({ 
+        _id: classTeacherId, 
+        role: 'faculty', 
+        department: departmentId 
+      });
+      
+      if (facultyUser) {
+        newClassTeacherId = facultyUser._id;
+      }
+    }
+
+    // Remove old class teacher status
+    if (oldClassTeacherId && oldClassTeacherId.toString() !== newClassTeacherId?.toString()) {
+      await User.findByIdAndUpdate(oldClassTeacherId, { isClassTeacher: false });
+    }
+
+    // Add new class teacher status
+    if (newClassTeacherId && (!oldClassTeacherId || oldClassTeacherId.toString() !== newClassTeacherId.toString())) {
+      await User.findByIdAndUpdate(newClassTeacherId, { isClassTeacher: true });
+    }
 
     classToUpdate.name = name;
-    classToUpdate.program = program || 'B.Tech';
-    classToUpdate.specialization = specialization || subject;
-    classToUpdate.classTeacher = facultyUser._id;
+    classToUpdate.fullName = fullName;
+    classToUpdate.classTeacher = newClassTeacherId;
+    classToUpdate.academicYear = academicYear;
+    classToUpdate.semester = semester;
     classToUpdate.capacity = capacity || classToUpdate.capacity;
-    classToUpdate.description = description || classToUpdate.description;
+    classToUpdate.status = status || classToUpdate.status;
 
     await classToUpdate.save();
 
@@ -179,6 +239,24 @@ const deleteClass = async (req, res) => {
     if (!classToDelete) {
       return res.status(404).json({ message: 'Class not found' });
     }
+
+    // Remove class teacher status from faculty
+    if (classToDelete.classTeacher) {
+      await User.findByIdAndUpdate(classToDelete.classTeacher, { isClassTeacher: false });
+    }
+
+    // Remove students from this class
+    if (classToDelete.students && classToDelete.students.length > 0) {
+      await User.updateMany(
+        { _id: { $in: classToDelete.students } },
+        { $unset: { class: 1 } }
+      );
+    }
+
+    // Remove from department
+    await Department.findByIdAndUpdate(departmentId, {
+      $pull: { classes: id }
+    });
 
     await Class.findByIdAndDelete(id);
     res.json({ message: 'Class deleted successfully' });
@@ -250,6 +328,11 @@ const createFaculty = async (req, res) => {
 
     await newFaculty.save();
 
+    // Update Department model - add faculty to department
+    await Department.findByIdAndUpdate(departmentId, {
+      $push: { faculty: newFaculty._id }
+    });
+
     // TODO: Send email with temporary password
     console.log(`Temporary password for ${email}: ${tempPassword}`);
 
@@ -319,6 +402,23 @@ const deleteFaculty = async (req, res) => {
     if (!facultyToDelete) {
       return res.status(404).json({ message: 'Faculty not found' });
     }
+
+    // Remove from department
+    await Department.findByIdAndUpdate(departmentId, {
+      $pull: { faculty: id }
+    });
+
+    // Remove from subjects
+    await Subject.updateMany(
+      { faculty: id },
+      { $pull: { faculty: id } }
+    );
+
+    // Remove from classes where they are class teacher
+    await Class.updateMany(
+      { classTeacher: id },
+      { $unset: { classTeacher: 1 } }
+    );
 
     await User.findByIdAndDelete(id);
     res.json({ message: 'Faculty deleted successfully' });
@@ -506,7 +606,7 @@ const getStudents = async (req, res) => {
       phone: student.phone || 'Not provided',
       rollNumber: student.rollNumber || 'Not assigned',
       class: student.class?.name || 'Not assigned',
-      year: student.year || '1st Year',
+      semester: student.semester || '1st Semester',
       department: student.department?.name || 'Unknown',
       address: student.address || 'Not provided',
       parentName: student.parentName || 'Not provided',
@@ -524,7 +624,7 @@ const getStudents = async (req, res) => {
 const createStudent = async (req, res) => {
   try {
     const { 
-      name, email, phone, rollNumber, class: className, year, 
+      name, email, phone, rollNumber, class: className, semester, 
       address, parentName, parentPhone 
     } = req.body;
     const departmentId = req.user.department;
@@ -536,8 +636,10 @@ const createStudent = async (req, res) => {
     }
 
     // Find class by name
+    const [tempClassName, tempSemester] = className.split('-');
     const classObj = await Class.findOne({ 
-      name: className, 
+      name: tempClassName, 
+      semester: semester,
       department: departmentId 
     });
 
@@ -554,7 +656,7 @@ const createStudent = async (req, res) => {
       class: classObj?._id,
       phone,
       rollNumber,
-      year,
+      semester,
       address,
       parentName,
       parentPhone,
@@ -562,6 +664,19 @@ const createStudent = async (req, res) => {
     });
 
     await newStudent.save();
+
+    // Update Class model - add student to class
+    if (classObj) {
+      await Class.findByIdAndUpdate(classObj._id, {
+        $push: { students: newStudent._id },
+        $inc: { currentStrength: 1 }
+      });
+    }
+
+    // Update Department model - add student to department
+    await Department.findByIdAndUpdate(departmentId, {
+      $push: { students: newStudent._id }
+    });
 
     // TODO: Send email with temporary password
     console.log(`Temporary password for ${email}: ${tempPassword}`);
@@ -581,14 +696,14 @@ const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      name, email, phone, rollNumber, class: className, year, 
+      name, email, phone, rollNumber, class: className, semester, 
       address, parentName, parentPhone 
     } = req.body;
     const departmentId = req.user.department;
 
     const studentToUpdate = await User.findOne({ 
       _id: id, 
-      role: 'student', 
+      role: 'student',
       department: departmentId 
     });
 
@@ -605,17 +720,39 @@ const updateStudent = async (req, res) => {
     }
 
     // Find class by name
+    const [tempClassName, tempSemester] = className.split('-');
     const classObj = await Class.findOne({ 
-      name: className, 
+      name: tempClassName, 
+      semester: semester,
       department: departmentId 
     });
+
+    // Handle class changes
+    const oldClassId = studentToUpdate.class;
+    const newClassId = classObj?._id;
+
+    if (oldClassId && oldClassId.toString() !== newClassId?.toString()) {
+      // Remove from old class
+      await Class.findByIdAndUpdate(oldClassId, {
+        $pull: { students: id },
+        $inc: { currentStrength: -1 }
+      });
+    }
+
+    if (newClassId && (!oldClassId || oldClassId.toString() !== newClassId.toString())) {
+      // Add to new class
+      await Class.findByIdAndUpdate(newClassId, {
+        $push: { students: id },
+        $inc: { currentStrength: 1 }
+      });
+    }
 
     studentToUpdate.name = name;
     studentToUpdate.email = email;
     studentToUpdate.phone = phone;
     studentToUpdate.rollNumber = rollNumber;
     studentToUpdate.class = classObj?._id;
-    studentToUpdate.year = year;
+    studentToUpdate.semester = semester;
     studentToUpdate.address = address;
     studentToUpdate.parentName = parentName;
     studentToUpdate.parentPhone = parentPhone;
@@ -643,6 +780,19 @@ const deleteStudent = async (req, res) => {
     if (!studentToDelete) {
       return res.status(404).json({ message: 'Student not found' });
     }
+
+    // Remove from class
+    if (studentToDelete.class) {
+      await Class.findByIdAndUpdate(studentToDelete.class, {
+        $pull: { students: id },
+        $inc: { currentStrength: -1 }
+      });
+    }
+
+    // Remove from department
+    await Department.findByIdAndUpdate(departmentId, {
+      $pull: { students: id }
+    });
 
     await User.findByIdAndDelete(id);
     res.json({ message: 'Student deleted successfully' });
@@ -723,14 +873,15 @@ const getClassesList = async (req, res) => {
   try {
     const departmentId = req.user.department;
     const classes = await Class.find({ department: departmentId })
-      .select('name program specialization')
+      .select('name program specialization semester')
       .sort({ program: 1, specialization: 1 });
 
     const formattedClasses = classes.map(cls => ({
       _id: cls._id,
-      name: cls.name || `${cls.program} ${cls.specialization}`
+      name: cls.name || `${cls.program} ${cls.specialization}`,
+      semester: cls.semester
     }));
-
+   
     res.json(formattedClasses);
   } catch (error) {
     console.error('Get classes list error:', error);

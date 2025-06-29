@@ -5,19 +5,17 @@ const Timetable = require('../models/Timetable');
 
 exports.addClass = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can add classes.' });
     }
     
     const { name, departmentId, classTeacherId, academicYear, semester, capacity } = req.body;
-    
+    console.log(departmentId);
+    console.log(req.user);
     // For department admins, ensure they can only add classes to their department
-    let targetDepartmentId = departmentId;
-    if (req.user.role === 'departmentAdmin') {
-      targetDepartmentId = req.user.department;
-      if (departmentId && departmentId !== req.user.department) {
-        return res.status(403).json({ message: 'You can only add classes to your assigned department' });
-      }
+    let targetDepartmentId = req.user.department;
+    if (departmentId && departmentId !== req.user.department) {
+      return res.status(403).json({ message: 'You can only add classes to your assigned department' });
     }
     
     // Verify department exists
@@ -40,17 +38,22 @@ exports.addClass = async (req, res) => {
     }
     
     // Create full name (e.g., "CSE-A")
-    const fullName = `${department.code}-${name}`;
+    const fullName = `${department.name}-${name}`;
     
-    const newClass = new Class({ 
+    const tempClass = {
       name, 
       fullName,
-      department: targetDepartmentId, 
-      classTeacher: classTeacherId,
+      department: targetDepartmentId,
       academicYear,
       semester,
       capacity: capacity || 60
-    });
+    }
+
+    if(classTeacherId && classTeacherId !== "-"){
+      tempClass.classTeacher = classTeacherId;
+    }
+
+    const newClass = new Class(tempClass);
     
     await newClass.save();
     
@@ -60,7 +63,7 @@ exports.addClass = async (req, res) => {
     });
     
     // If class teacher is assigned, update their isClassTeacher status
-    if (classTeacherId) {
+    if (classTeacherId && classTeacherId !== "-") {
       await User.findByIdAndUpdate(classTeacherId, { isClassTeacher: true });
     }
     
@@ -71,6 +74,7 @@ exports.addClass = async (req, res) => {
     
     res.status(201).json(populatedClass);
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -129,8 +133,8 @@ exports.getClassById = async (req, res) => {
 
 exports.updateClass = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can update classes.' });
     }
     
     const { id } = req.params;
@@ -142,49 +146,22 @@ exports.updateClass = async (req, res) => {
     }
     
     // For department admins, ensure they can only update classes in their department
-    if (req.user.role === 'departmentAdmin' && classData.department.toString() !== req.user.department) {
+    if (classData.department.toString() !== req.user.department) {
       return res.status(403).json({ message: 'You can only update classes in your assigned department' });
     }
     
-    // Check if name conflicts with other classes in same department
-    if (name && name !== classData.name) {
-      const existingClass = await Class.findOne({ 
-        name, 
-        department: classData.department,
-        academicYear: classData.academicYear,
-        semester: classData.semester,
-        _id: { $ne: id }
-      });
-      if (existingClass) {
-        return res.status(400).json({ 
-          message: 'Class with this name already exists in this department for the given academic year and semester' 
-        });
-      }
-      
-      // Update full name
-      const department = await Department.findById(classData.department);
-      const fullName = `${department.code}-${name}`;
-      req.body.fullName = fullName;
-    }
+    // Update class data
+    if (name) classData.name = name;
+    if (classTeacherId) classData.classTeacher = classTeacherId;
+    if (capacity) classData.capacity = capacity;
+    if (status) classData.status = status;
     
-    // If changing class teacher, update the old teacher's status
-    if (classTeacherId && classTeacherId !== classData.classTeacher?.toString()) {
-      if (classData.classTeacher) {
-        await User.findByIdAndUpdate(classData.classTeacher, { isClassTeacher: false });
-      }
-      if (classTeacherId) {
-        await User.findByIdAndUpdate(classTeacherId, { isClassTeacher: true });
-      }
-    }
+    await classData.save();
     
-    const updatedClass = await Class.findByIdAndUpdate(
-      id, 
-      req.body, 
-      { new: true, runValidators: true }
-    )
-    .populate('department', 'name code')
-    .populate('classTeacher', 'name email')
-    .populate('students', 'name email rollNumber');
+    const updatedClass = await Class.findById(id)
+      .populate('department', 'name code')
+      .populate('classTeacher', 'name email')
+      .populate('students', 'name email rollNumber');
     
     res.json(updatedClass);
   } catch (err) {
@@ -194,27 +171,20 @@ exports.updateClass = async (req, res) => {
 
 exports.deleteClass = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can delete classes.' });
     }
     
     const { id } = req.params;
-    const classData = await Class.findById(id);
     
+    const classData = await Class.findById(id);
     if (!classData) {
       return res.status(404).json({ message: 'Class not found' });
     }
     
     // For department admins, ensure they can only delete classes in their department
-    if (req.user.role === 'departmentAdmin' && classData.department.toString() !== req.user.department) {
+    if (classData.department.toString() !== req.user.department) {
       return res.status(403).json({ message: 'You can only delete classes in your assigned department' });
-    }
-    
-    // Check if class has students
-    if (classData.students.length > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete class with existing students. Please remove all students first.' 
-      });
     }
     
     // Remove class from department
@@ -222,17 +192,22 @@ exports.deleteClass = async (req, res) => {
       $pull: { classes: id }
     });
     
-    // Update class teacher status
+    // Remove class teacher status if assigned
     if (classData.classTeacher) {
       await User.findByIdAndUpdate(classData.classTeacher, { isClassTeacher: false });
     }
     
-    // Delete associated timetable
-    if (classData.timetable) {
-      await Timetable.findByIdAndDelete(classData.timetable);
+    // Remove students from this class
+    if (classData.students && classData.students.length > 0) {
+      await User.updateMany(
+        { _id: { $in: classData.students } },
+        { $unset: { class: 1 } }
+      );
     }
     
+    // Delete the class
     await Class.findByIdAndDelete(id);
+    
     res.json({ message: 'Class deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -282,8 +257,8 @@ exports.assignClassTeacher = async (req, res) => {
 
 exports.addStudentToClass = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied' });
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admins can add students to classes.' });
     }
     
     const { classId, studentId } = req.body;
@@ -297,6 +272,11 @@ exports.addStudentToClass = async (req, res) => {
     const classData = await Class.findById(classId);
     if (!classData) {
       return res.status(404).json({ message: 'Class not found' });
+    }
+    
+    // For department admins, ensure they can only add students to classes in their department
+    if (classData.department.toString() !== req.user.department) {
+      return res.status(403).json({ message: 'You can only add students to classes in your assigned department' });
     }
     
     // Check if class is full

@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
     
     // Additional fields for students
     rollNumber: { type: String }, // for students
-    year: { type: String }, // for students (1st Year, 2nd Year, etc.)
+    semester: { type: String }, // for students (1st Semester, 2nd Semester, etc.)
     address: { type: String }, // for students
     parentName: { type: String }, // for students
     parentPhone: { type: String }, // for students

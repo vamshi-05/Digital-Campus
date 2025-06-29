@@ -22,7 +22,6 @@ const DepartmentSubjects = () => {
     description: '',
     credits: '',
     semester: '',
-    faculty: '',
     department: ''
   });
 
@@ -36,6 +35,7 @@ const DepartmentSubjects = () => {
         axios.get('/department-admin/subjects'),
         axios.get('/department-admin/faculty-list')
       ]);
+      
       
       setSubjects(subjectsRes.data);
       setFaculty(facultyRes.data);
@@ -57,7 +57,6 @@ const DepartmentSubjects = () => {
         description: '',
         credits: '',
         semester: '',
-        faculty: '',
         department: ''
       });
       fetchData();
@@ -78,7 +77,6 @@ const DepartmentSubjects = () => {
         description: '',
         credits: '',
         semester: '',
-        faculty: '',
         department: ''
       });
       fetchData();
@@ -106,7 +104,6 @@ const DepartmentSubjects = () => {
       description: subject.description,
       credits: subject.credits,
       semester: subject.semester,
-      faculty: subject.faculty,
       department: subject.department
     });
     setShowEditModal(true);
@@ -122,13 +119,12 @@ const DepartmentSubjects = () => {
                          subject.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          subject.faculty.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSemester = !filterSemester || subject.semester === filterSemester;
-    const matchesCredits = !filterCredits || subject.credits === filterCredits;
+    const matchesCredits = !filterCredits || parseFloat(subject.credits) === parseFloat(filterCredits);
     
     return matchesSearch && matchesSemester && matchesCredits;
   });
 
   const semesters = ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
-  const creditOptions = ['1', '2', '3', '4', '5', '6'];
 
   if (loading) {
     return (
@@ -174,17 +170,15 @@ const DepartmentSubjects = () => {
               ))}
             </select>
             
-            <select
+            <input
+              type="number"
               value={filterCredits}
               onChange={(e) => setFilterCredits(e.target.value)}
-            >
-              <option value="">All Credits</option>
-              {creditOptions.map(credit => (
-                <option key={credit} value={credit}>
-                  {credit} Credits
-                </option>
-              ))}
-            </select>
+              placeholder="Filter by credits..."
+              min="0"
+              max="10"
+              step="0.1"
+            />
           </div>
         </div>
         
@@ -329,36 +323,20 @@ const DepartmentSubjects = () => {
                 
                 <div className="form-group">
                   <label>Credits</label>
-                  <select
+                  <input
+                    type="number"
                     value={formData.credits}
                     onChange={(e) => setFormData({...formData, credits: e.target.value})}
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    placeholder="e.g., 3.5"
                     required
-                  >
-                    <option value="">Select Credits</option>
-                    {creditOptions.map(credit => (
-                      <option key={credit} value={credit}>
-                        {credit} Credits
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
               
-              <div className="form-group">
-                <label>Assigned Faculty</label>
-                <select
-                  value={formData.faculty}
-                  onChange={(e) => setFormData({...formData, faculty: e.target.value})}
-                  required
-                >
-                  <option value="">Select Faculty</option>
-                  {faculty.map(f => (
-                    <option key={f._id} value={f.name}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              
               
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowAddModal(false)}>
@@ -436,36 +414,20 @@ const DepartmentSubjects = () => {
                 
                 <div className="form-group">
                   <label>Credits</label>
-                  <select
+                  <input
+                    type="number"
                     value={formData.credits}
                     onChange={(e) => setFormData({...formData, credits: e.target.value})}
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    placeholder="e.g., 3.5"
                     required
-                  >
-                    <option value="">Select Credits</option>
-                    {creditOptions.map(credit => (
-                      <option key={credit} value={credit}>
-                        {credit} Credits
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
               
-              <div className="form-group">
-                <label>Assigned Faculty</label>
-                <select
-                  value={formData.faculty}
-                  onChange={(e) => setFormData({...formData, faculty: e.target.value})}
-                  required
-                >
-                  <option value="">Select Faculty</option>
-                  {faculty.map(f => (
-                    <option key={f._id} value={f.name}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              
               
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowEditModal(false)}>

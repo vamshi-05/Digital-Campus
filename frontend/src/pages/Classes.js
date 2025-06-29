@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import  useAuth  from '../hooks/useAuth';
-import  api  from '../api/axios';
+import useAuth from '../hooks/useAuth';
+import api from '../api/axios';
 import '../styles/classes.css';
 
 // Temporary passwords from environment variables
@@ -17,7 +17,6 @@ export default function Classes() {
   const [departments, setDepartments] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -27,13 +26,9 @@ export default function Classes() {
     semester: ''
   });
 
-  // Get user's department if they are a department admin
-  const userDepartment = user?.department;
-  console.log(user);
-
   const [formData, setFormData] = useState({
     name: '',
-    departmentId: userDepartment || '', // Auto-assign department for department admins
+    departmentId: '',
     classTeacherId: '',
     academicYear: '',
     semester: '',
@@ -51,71 +46,23 @@ export default function Classes() {
       
       // Fetch classes with filters
       const classParams = new URLSearchParams();
-      
-      // For department admins, always filter by their department
-      if (user?.role === 'departmentAdmin' && userDepartment) {
-        classParams.append('departmentId', userDepartment);
-      } else if (filters.departmentId) {
-        classParams.append('departmentId', filters.departmentId);
-      }
-      
+      if (filters.departmentId) classParams.append('departmentId', filters.departmentId);
       if (filters.academicYear) classParams.append('academicYear', filters.academicYear);
       if (filters.semester) classParams.append('semester', filters.semester);
       
-      // Fetch data based on user role
-      let classesRes, departmentsRes, facultyRes;
-      
-      if (user?.role === 'departmentAdmin') {
-        // Department admin: only fetch their department's data
-        [classesRes, departmentsRes, facultyRes] = await Promise.all([
-          api.get(`/classes/all?${classParams}`),
-          api.get(`/departments/${userDepartment}`),
-          api.get(`/users/faculty?departmentId=${userDepartment}`)
-        ]);
-        // Convert single department to array for consistency
-        setDepartments([departmentsRes.data]);
-      } else {
-        // Super admin: fetch all data
-        [classesRes, departmentsRes, facultyRes] = await Promise.all([
-          api.get(`/classes/all?${classParams}`),
-          api.get('/departments/all'),
-          api.get('/users/faculty')
-        ]);
-        setDepartments(departmentsRes.data);
-      }
+      const [classesRes, departmentsRes, facultyRes] = await Promise.all([
+        api.get(`/classes/all?${classParams}`),
+        api.get('/departments/all'),
+        api.get('/users/faculty')
+      ]);
 
       setClasses(classesRes.data);
+      setDepartments(departmentsRes.data);
       setFaculty(facultyRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAddClass = async (e) => {
-    e.preventDefault();
-    try {
-      // For department admins, ensure their department is set
-      const classData = {
-        ...formData,
-        departmentId: user?.role === 'departmentAdmin' ? userDepartment : formData.departmentId
-      };
-      
-      await api.post('/classes/add', classData);
-      setShowAddModal(false);
-      setFormData({
-        name: '',
-        departmentId: userDepartment || '',
-        classTeacherId: '',
-        academicYear: '',
-        semester: '',
-        capacity: 60,
-        status: 'active'
-      });
-      fetchData();
-    } catch (error) {
-      console.error('Error adding class:', error);
     }
   };
 
@@ -127,7 +74,7 @@ export default function Classes() {
       setSelectedClass(null);
       setFormData({
         name: '',
-        departmentId: userDepartment || '',
+        departmentId: '',
         classTeacherId: '',
         academicYear: '',
         semester: '',
@@ -205,36 +152,29 @@ export default function Classes() {
         >
           <h1>Class Management</h1>
           <p>
-            {user?.role === 'departmentAdmin' 
-              ? `Manage class sections in ${departments[0]?.name || 'your department'}`
+            {user?.role === 'admin' 
+              ? 'View all classes across the system (View-only access)' 
               : 'Manage class sections within departments'
             }
           </p>
-          <button 
-            className="add-btn"
-            onClick={() => setShowAddModal(true)}
-          >
-            + Add New Class
-          </button>
+          
         </motion.div>
       </div>
 
-      {/* Filters - Hide department filter for department admins */}
+      {/* Filters */}
       <div className="filters-section">
-        {user?.role !== 'departmentAdmin' && (
-          <div className="filter-group">
-            <label>Department:</label>
-            <select 
-              value={filters.departmentId} 
-              onChange={(e) => setFilters({...filters, departmentId: e.target.value})}
-            >
-              <option value="">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept._id} value={dept._id}>{dept.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="filter-group">
+          <label>Department:</label>
+          <select 
+            value={filters.departmentId} 
+            onChange={(e) => setFilters({...filters, departmentId: e.target.value})}
+          >
+            <option value="">All Departments</option>
+            {departments.map(dept => (
+              <option key={dept._id} value={dept._id}>{dept.name}</option>
+            ))}
+          </select>
+        </div>
         
         <div className="filter-group">
           <label>Academic Year:</label>
@@ -260,76 +200,117 @@ export default function Classes() {
             <option value="2nd Semester">2nd Semester</option>
             <option value="3rd Semester">3rd Semester</option>
             <option value="4th Semester">4th Semester</option>
+            <option value="5th Semester">5th Semester</option>
+            <option value="6th Semester">6th Semester</option>
+            <option value="7th Semester">7th Semester</option>
+            <option value="8th Semester">8th Semester</option>
           </select>
         </div>
       </div>
 
-      {/* Classes Grid */}
-      <div className="classes-grid">
-        {classes.map((classData, index) => (
-          <motion.div
-            key={classData._id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="class-card"
-          >
-            <div className="class-header">
-              <h3>{classData.fullName}</h3>
-              <span className={`status ${classData.status}`}>
-                {classData.status}
-              </span>
-            </div>
-            
-            <div className="class-details">
-              <p><strong>Department:</strong> {classData.department?.name}</p>
-              <p><strong>Academic Year:</strong> {classData.academicYear}</p>
-              <p><strong>Semester:</strong> {classData.semester}</p>
-              <p><strong>Class Teacher:</strong> {classData.classTeacher?.name || 'Not Assigned'}</p>
-              <p><strong>Students:</strong> {classData.currentStrength}/{classData.capacity}</p>
-            </div>
-            
-            <div className="class-actions">
-              <button 
-                className="view-btn"
-                onClick={() => navigate(`/class/${classData._id}`)}
-              >
-                View Details
-              </button>
-              <button 
-                className="edit-btn"
-                onClick={() => openEditModal(classData)}
-              >
-                Edit
-              </button>
-              <button 
-                className="delete-btn"
-                onClick={() => openDeleteModal(classData)}
-              >
-                Delete
-              </button>
-            </div>
-          </motion.div>
-        ))}
+      {/* Statistics */}
+      <div className="stats-section">
+        <div className="stat-card">
+          <h3>{classes.length}</h3>
+          <p>Total Classes</p>
+        </div>
+        <div className="stat-card">
+          <h3>{classes.filter(cls => cls.status === 'active').length}</h3>
+          <p>Active Classes</p>
+        </div>
+        <div className="stat-card">
+          <h3>{classes.reduce((total, cls) => total + (cls.students?.length || 0), 0)}</h3>
+          <p>Total Students</p>
+        </div>
+        <div className="stat-card">
+          <h3>{departments.length}</h3>
+          <p>Departments</p>
+        </div>
       </div>
 
-      {classes.length === 0 && (
-        <div className="no-classes">
-          <p>No classes found. Create your first class to get started.</p>
+      {/* Classes Table */}
+      <div className="classes-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Class Name</th>
+              <th>Department</th>
+              <th>Class Teacher</th>
+              <th>Academic Year</th>
+              <th>Semester</th>
+              <th>Students</th>
+              <th>Status</th>
+              {user?.role !== 'admin' && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {classes.map(classData => (
+              <tr key={classData._id}>
+                <td>{classData.fullName || classData.name}</td>
+                <td>{classData.department?.name}</td>
+                <td>{classData.classTeacher?.name || 'Not Assigned'}</td>
+                <td>{classData.academicYear}</td>
+                <td>{classData.semester}</td>
+                <td>{classData.students?.length || 0}</td>
+                <td>
+                  <span className={`status-badge status-${classData.status}`}>
+                    {classData.status}
+                  </span>
+                </td>
+                {user?.role !== 'admin' && (
+                  <td>
+                    <div className="actions">
+                      <button 
+                        className="edit-btn"
+                        onClick={() => openEditModal(classData)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="delete-btn"
+                        onClick={() => openDeleteModal(classData)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {classes.length === 0 && (
+          <div className="no-data">
+            <p>No classes found matching your criteria</p>
+          </div>
+        )}
+      </div>
+
+      {/* Admin Notice */}
+      {user?.role === 'admin' && (
+        <div className="admin-notice">
+          <div className="notice-card">
+            <h5>View-Only Access</h5>
+            <p>
+              As a Super Admin, you have view-only access to all class data. 
+              Department admins are responsible for creating and managing classes within their departments.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Add Class Modal */}
-      {showAddModal && (
+      {/* Edit Class Modal */}
+      {showEditModal && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2>Add New Class</h2>
-              <button onClick={() => setShowAddModal(false)} className="close-btn">×</button>
+              <h2>Edit Class</h2>
+              <button onClick={() => setShowEditModal(false)} className="close-btn">×</button>
             </div>
-            <form onSubmit={handleAddClass}>
+            <form onSubmit={handleEditClass}>
               <div className="form-group">
-                <label>Class Name (Section):</label>
+                <label>Class Name *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -337,57 +318,27 @@ export default function Classes() {
                   placeholder="e.g., A, B, C"
                   required
                 />
-                <small className="form-text">Single letter or number for the section (e.g., A, B, C, 1, 2)</small>
               </div>
               
-              {/* Show department selection only for super admins
-              {user?.role !== 'departmentAdmin' ? (
-                <div className="form-group">
-                  <label>Department:</label>
-                  <select
-                    value={formData.departmentId}
-                    onChange={(e) => setFormData({...formData, departmentId: e.target.value})}
-                    required
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map(dept => (
-                      <option key={dept._id} value={dept._id}>{dept.name} ({dept.code})</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="form-group">
-                  <label>Department:</label>
-                  <div className="department-display">
-                    <span className="department-name">{userDepartment} ({departments[0]?.code})</span>
-                    <small className="form-text">Your assigned department</small>
-                  </div>
-                </div>
-              )} */}
-              
               <div className="form-group">
-                <label>Class Teacher:</label>
+                <label>Class Teacher</label>
                 <select
                   value={formData.classTeacherId}
                   onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
                 >
-                  <option value="">Select Class Teacher</option>
+                  <option value="">Select Teacher</option>
                   {faculty.map(teacher => (
-                    <option key={teacher._id} value={teacher._id}>
-                      {teacher.name} - {teacher.specialization || 'Faculty'}
-                    </option>
+                    <option key={teacher._id} value={teacher._id}>{teacher.name}</option>
                   ))}
                 </select>
-                <small className="form-text">Optional: Assign a faculty member as class teacher</small>
               </div>
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Academic Year:</label>
+                  <label>Academic Year</label>
                   <select
                     value={formData.academicYear}
                     onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
-                    required
                   >
                     <option value="">Select Year</option>
                     <option value="2024-25">2024-25</option>
@@ -397,11 +348,10 @@ export default function Classes() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Semester:</label>
+                  <label>Semester</label>
                   <select
                     value={formData.semester}
                     onChange={(e) => setFormData({...formData, semester: e.target.value})}
-                    required
                   >
                     <option value="">Select Semester</option>
                     <option value="1st Semester">1st Semester</option>
@@ -417,93 +367,19 @@ export default function Classes() {
               </div>
               
               <div className="form-row">
-                {/* <div className="form-group">
-                  <label>Capacity:</label>
+                <div className="form-group">
+                  <label>Capacity</label>
                   <input
                     type="number"
                     value={formData.capacity}
                     onChange={(e) => setFormData({...formData, capacity: parseInt(e.target.value)})}
                     min="1"
-                    max="100"
-                    placeholder="60"
-                  />
-                  <small className="form-text">Maximum number of students allowed</small>
-                </div> */}
-                
-                <div className="form-group">
-                  <label>Status:</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="modal-actions">
-                <button type="button" onClick={() => setShowAddModal(false)} className="cancel-btn">
-                  Cancel
-                </button>
-                <button type="submit" className="submit-btn">
-                  Add Class
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Class Modal */}
-      {showEditModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Edit Class</h2>
-              <button onClick={() => setShowEditModal(false)} className="close-btn">×</button>
-            </div>
-            <form onSubmit={handleEditClass}>
-              <div className="form-group">
-                <label>Class Name (Section):</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g., A, B, C"
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Class Teacher:</label>
-                <select
-                  value={formData.classTeacherId}
-                  onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
-                >
-                  <option value="">Select Class Teacher</option>
-                  {faculty.map(teacher => (
-                    <option key={teacher._id} value={teacher._id}>
-                      {teacher.name} - {teacher.specialization || 'Faculty'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Capacity:</label>
-                  <input
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({...formData, capacity: parseInt(e.target.value)})}
-                    min="1"
-                    max="100"
+                    max="200"
                   />
                 </div>
                 
                 <div className="form-group">
-                  <label>Status:</label>
+                  <label>Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({...formData, status: e.target.value})}
@@ -530,14 +406,14 @@ export default function Classes() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="modal-overlay">
-          <div className="modal delete-modal">
+          <div className="modal">
             <div className="modal-header">
               <h2>Delete Class</h2>
               <button onClick={() => setShowDeleteModal(false)} className="close-btn">×</button>
             </div>
             <div className="modal-body">
-              <p>Are you sure you want to delete <strong>{selectedClass?.fullName}</strong>?</p>
-              <p>This action cannot be undone.</p>
+              <p>Are you sure you want to delete the class "{selectedClass?.name}"?</p>
+              <p className="warning">This action cannot be undone.</p>
             </div>
             <div className="modal-actions">
               <button onClick={() => setShowDeleteModal(false)} className="cancel-btn">
