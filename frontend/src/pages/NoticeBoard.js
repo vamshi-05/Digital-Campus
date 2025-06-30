@@ -230,7 +230,7 @@ const NoticeBoard = () => {
         )}
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {/* {error && <div className="error-message">{error}</div>} */}
 
       {/* Filters */}
       <div className="filters-section">

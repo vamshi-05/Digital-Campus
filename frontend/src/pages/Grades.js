@@ -180,7 +180,7 @@ const Grades = () => {
         </button>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {/* {error && <div className="error-message">{error}</div>} */}
 
       {/* Filters */}
       <div className="filters-section">

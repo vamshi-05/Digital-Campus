@@ -10,9 +10,10 @@ exports.addTimetable = async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only department admins can add timetables.' });
     }
     
-    const { classId, schedule, academicYear, semester } = req.body;
-    
+    const { class: classId, schedule, academicYear, semester } = req.body;
+    console.log(req.body);
     // Verify class exists
+
     const classData = await Class.findById(classId);
     if (!classData) {
       return res.status(404).json({ message: 'Class not found' });
@@ -28,7 +29,7 @@ exports.addTimetable = async (req, res) => {
     if (existingTimetable) {
       return res.status(400).json({ message: 'Timetable already exists for this class' });
     }
-    
+    console.log("0");
     const timetable = new Timetable({ 
       class: classId, 
       department: classData.department,
@@ -36,12 +37,12 @@ exports.addTimetable = async (req, res) => {
       academicYear: academicYear || classData.academicYear,
       semester: semester || classData.semester
     });
-    
+    console.log("1");
     await timetable.save();
-    
+    console.log("2");
     // Update class with timetable reference
     await Class.findByIdAndUpdate(classId, { timetable: timetable._id });
-    
+    console.log("3");
     const populatedTimetable = await Timetable.findById(timetable._id)
       .populate('class', 'name fullName')
       .populate('department', 'name code')
@@ -53,9 +54,10 @@ exports.addTimetable = async (req, res) => {
         path: 'schedule.periods.teacher',
         select: 'name email'
       });
-    
+    console.log("4");
     res.status(201).json(populatedTimetable);
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };

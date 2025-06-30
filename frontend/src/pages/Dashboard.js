@@ -132,7 +132,7 @@ const Dashboard = () => {
         <p>Here's what's happening in your Digital Campus</p>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {/* {error && <div className="error-message">{error}</div>} */}
 
       {/* Stats Cards */}
       <div className="stats-section">

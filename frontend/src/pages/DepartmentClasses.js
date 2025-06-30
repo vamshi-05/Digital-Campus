@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
 import useAuth from '../hooks/useAuth';
 import '../styles/department-classes.css';
+import TimetableForm from './TimetableForm';
 
 const DepartmentClasses = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,8 @@ const DepartmentClasses = () => {
     capacity: 60,
     status: 'active'
   });
+  const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [timetableClass, setTimetableClass] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -268,6 +272,14 @@ const DepartmentClasses = () => {
                     >
                       Delete
                     </button>
+                    {user.role === 'departmentAdmin' && (
+                      <button
+                        className="timetable-btn"
+                        onClick={() => { setTimetableClass(cls); setShowTimetableModal(true); }}
+                      >
+                        Create Timetable
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -543,6 +555,22 @@ const DepartmentClasses = () => {
                 Delete Class
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showTimetableModal && timetableClass && (
+        <div className="modal-overlay" onClick={() => setShowTimetableModal(false)}>
+          <div className="modal timetable-modal" onClick={e => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setShowTimetableModal(false)}>×</button>
+            <TimetableForm
+              classId={timetableClass._id}
+              departmentId={timetableClass.department}
+              semester={timetableClass.semester}
+              academicYear={timetableClass.academicYear}
+              className={timetableClass.name}
+              onSuccess={() => { setShowTimetableModal(false); fetchData(); }}
+            />
           </div>
         </div>
       )}

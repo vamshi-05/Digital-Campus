@@ -34,7 +34,6 @@ import Grades from './pages/Grades';
 import NoticeBoard from './pages/NoticeBoard';
 import ComplaintsCenter from './pages/ComplaintsCenter';
 import ChatInterface from './pages/ChatInterface';
-import TimetableManagement from './pages/TimetableManagement';
 
 // Page placeholders
 const Home = () => <h2>Welcome to Digital Campus</h2>;
@@ -513,13 +512,7 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
-                <Route path="/timetable-management" element={
-                  <ProtectedRoute>
-                    <FirstLoginRedirect>
-                      <PageWrapper><TimetableManagement /></PageWrapper>
-                    </FirstLoginRedirect>
-                  </ProtectedRoute>
-                } />
+               
                 <Route path="/chat" element={
                   <ProtectedRoute>
                     <FirstLoginRedirect>

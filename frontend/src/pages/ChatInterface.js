@@ -417,7 +417,7 @@ const ChatInterface = () => {
         }}
       />
 
-      {error && <div className="error-message">{error}</div>}
+      {/* {error && <div className="error-message">{error}</div>} */}
     </div>
   );
 };
