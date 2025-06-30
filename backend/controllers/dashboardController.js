@@ -417,10 +417,10 @@ const calculateAverageGrade = async (studentId) => {
 
 const getTodaysClasses = async (facultyId) => {
   const today = new Date();
-  const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'lowercase' });
+  const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
   
   const timetables = await Timetable.find({
-    'schedule.' + dayOfWeek: {
+    [`schedule.${dayOfWeek}`]: {
       $elemMatch: { faculty: facultyId }
     }
   });
@@ -430,10 +430,10 @@ const getTodaysClasses = async (facultyId) => {
 
 const getAttendanceDue = async (facultyId) => {
   const today = new Date();
-  const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'lowercase' });
+  const dayOfWeek = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
   
   const timetables = await Timetable.find({
-    'schedule.' + dayOfWeek: {
+    [`schedule.${dayOfWeek}`]: {
       $elemMatch: { faculty: facultyId }
     }
   });

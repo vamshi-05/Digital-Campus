@@ -94,10 +94,6 @@ exports.getAllStudents = async (req, res) => {
 
 exports.createUser = async (req, res) => {
   try {
-    if (req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied. Only department admins can create users.' });
-    }
-    
     const { 
       name, 
       email, 
@@ -114,7 +110,8 @@ exports.createUser = async (req, res) => {
       semester,
       address,
       parentName,
-      parentPhone
+      parentPhone,
+      status = 'active'
     } = req.body;
     
     // Check if user already exists
@@ -123,10 +120,37 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
     
-    // Department admins can only create users for their own department
-    const targetDepartment = req.user.department;
-    if (department && department !== targetDepartment) {
-      return res.status(403).json({ message: 'You can only create users for your assigned department' });
+    // Role-based permissions
+    let targetDepartment = department;
+    
+    if (req.user.role === 'admin') {
+      // Super admin can create department admins and assign them to any department
+      if (role === 'departmentAdmin') {
+        if (!department) {
+          return res.status(400).json({ message: 'Department is required for department admin' });
+        }
+        targetDepartment = department;
+      } else if (role === 'admin') {
+        return res.status(403).json({ message: 'Cannot create another super admin' });
+      } else {
+        return res.status(403).json({ message: 'Super admin can only create department admins' });
+      }
+    } else if (req.user.role === 'departmentAdmin') {
+      // Department admin can only create faculty and students for their own department
+      if (role === 'admin' || role === 'departmentAdmin') {
+        return res.status(403).json({ message: 'Department admins cannot create admin users' });
+      }
+      
+      if (role !== 'faculty' && role !== 'student') {
+        return res.status(403).json({ message: 'Department admins can only create faculty and students' });
+      }
+      
+      targetDepartment = req.user.department;
+      if (department && department !== targetDepartment) {
+        return res.status(403).json({ message: 'You can only create users for your assigned department' });
+      }
+    } else {
+      return res.status(403).json({ message: 'Access denied. Only admins and department admins can create users.' });
     }
     
     // Hash password
@@ -149,7 +173,8 @@ exports.createUser = async (req, res) => {
       semester,
       address,
       parentName,
-      parentPhone
+      parentPhone,
+      status
     });
     
     await user.save();
@@ -162,6 +187,10 @@ exports.createUser = async (req, res) => {
     } else if (role === 'faculty') {
       await Department.findByIdAndUpdate(targetDepartment, {
         $push: { faculty: user._id }
+      });
+    } else if (role === 'departmentAdmin') {
+      await Department.findByIdAndUpdate(targetDepartment, {
+        $push: { admins: user._id }
       });
     }
     
@@ -184,16 +213,13 @@ exports.createUser = async (req, res) => {
       user: userResponse
     });
   } catch (err) {
+    console.error('Create user error:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.updateUser = async (req, res) => {
   try {
-    if (req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied. Only department admins can update users.' });
-    }
-    
     const { id } = req.params;
     const updateData = req.body;
     
@@ -203,9 +229,27 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Department admins can only update users in their department
-    if (currentUser.department.toString() !== req.user.department) {
-      return res.status(403).json({ message: 'You can only update users in your assigned department' });
+    // Role-based permissions for updating
+    if (req.user.role === 'admin') {
+      // Super admin can update department admins
+      if (currentUser.role === 'departmentAdmin') {
+        // Allow updating department admin details
+      } else if (currentUser.role === 'admin') {
+        return res.status(403).json({ message: 'Cannot update another super admin' });
+      } else {
+        return res.status(403).json({ message: 'Super admin can only update department admins' });
+      }
+    } else if (req.user.role === 'departmentAdmin') {
+      // Department admin can only update faculty and students in their department
+      if (currentUser.role === 'admin' || currentUser.role === 'departmentAdmin') {
+        return res.status(403).json({ message: 'Department admins cannot update admin users' });
+      }
+      
+      if (currentUser.department.toString() !== req.user.department) {
+        return res.status(403).json({ message: 'You can only update users in your assigned department' });
+      }
+    } else {
+      return res.status(403).json({ message: 'Access denied. Only admins and department admins can update users.' });
     }
     
     // Handle class changes for students
@@ -242,16 +286,13 @@ exports.updateUser = async (req, res) => {
       user: updatedUser
     });
   } catch (err) {
+    console.error('Update user error:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.deleteUser = async (req, res) => {
   try {
-    if (req.user.role !== 'departmentAdmin') {
-      return res.status(403).json({ message: 'Access denied. Only department admins can delete users.' });
-    }
-    
     const { id } = req.params;
     
     // Get the user to check their department and role
@@ -260,9 +301,27 @@ exports.deleteUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // Department admins can only delete users in their department
-    if (user.department.toString() !== req.user.department) {
-      return res.status(403).json({ message: 'You can only delete users in your assigned department' });
+    // Role-based permissions for deleting
+    if (req.user.role === 'admin') {
+      // Super admin can delete department admins
+      if (user.role === 'departmentAdmin') {
+        // Allow deleting department admin
+      } else if (user.role === 'admin') {
+        return res.status(403).json({ message: 'Cannot delete another super admin' });
+      } else {
+        return res.status(403).json({ message: 'Super admin can only delete department admins' });
+      }
+    } else if (req.user.role === 'departmentAdmin') {
+      // Department admin can only delete faculty and students in their department
+      if (user.role === 'admin' || user.role === 'departmentAdmin') {
+        return res.status(403).json({ message: 'Department admins cannot delete admin users' });
+      }
+      
+      if (user.department.toString() !== req.user.department) {
+        return res.status(403).json({ message: 'You can only delete users in your assigned department' });
+      }
+    } else {
+      return res.status(403).json({ message: 'Access denied. Only admins and department admins can delete users.' });
     }
     
     // Remove student from class
@@ -294,6 +353,10 @@ exports.deleteUser = async (req, res) => {
         { classTeacher: id },
         { $unset: { classTeacher: 1 } }
       );
+    } else if (user.role === 'departmentAdmin') {
+      await Department.findByIdAndUpdate(user.department, {
+        $pull: { admins: id }
+      });
     }
     
     // If user is a class teacher, update their status
@@ -306,6 +369,7 @@ exports.deleteUser = async (req, res) => {
     
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
+    console.error('Delete user error:', err);
     res.status(500).json({ message: err.message });
   }
 };

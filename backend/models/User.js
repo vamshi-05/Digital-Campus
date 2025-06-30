@@ -15,11 +15,13 @@ const userSchema = new mongoose.Schema(
     
     // Additional fields for faculty
     phone: { type: String },
-    specialization: { type: String }, // for faculty
     qualification: { type: String }, // for faculty
     experience: { type: Number, default: 0 }, // for faculty
     designation: { type: String, default: 'Faculty' }, // for faculty
     isClassTeacher: { type: Boolean, default: false }, // indicates if faculty is a class teacher
+    
+    // Subjects taught by faculty
+    subjects: [{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' }, name: String }],
     
     // Additional fields for students
     rollNumber: { type: String }, // for students

@@ -296,7 +296,7 @@
 }
 
 .close-btn {
-  background: none;
+  background: #f8f9fa;
   border: none;
   font-size: 1.5rem;
   cursor: pointer;

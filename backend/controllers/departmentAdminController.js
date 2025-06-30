@@ -282,7 +282,8 @@ const getFaculty = async (req, res) => {
       name: f.name,
       email: f.email,
       phone: f.phone || 'Not provided',
-      subject: f.specialization || 'General',
+      subject: f.subjects || 'General',
+      subjects: f.subjects || 'General',
       qualification: f.qualification || 'Not specified',
       experience: f.experience || 0,
       designation: f.designation || 'Faculty',
@@ -299,7 +300,7 @@ const getFaculty = async (req, res) => {
 
 const createFaculty = async (req, res) => {
   try {
-    const { name, email, phone, subject, qualification, experience, designation } = req.body;
+    const { name, email, phone, qualification, experience, designation, subjectIds, password } = req.body;
     const departmentId = req.user.department;
 
     // Check if email already exists
@@ -307,10 +308,13 @@ const createFaculty = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
-
+    console.log(password);
     // Generate temporary password
-    const tempPassword = crypto.randomBytes(8).toString('hex');
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Find subject(s) by ID in this department
+    const subjectDocs = await Subject.find({ _id: { $in: subjectIds }, department: departmentId });
+    const subjectsArr = subjectDocs.map(s => ({ _id: s._id, name: s.name }));
 
     const newFaculty = new User({
       name,
@@ -319,11 +323,11 @@ const createFaculty = async (req, res) => {
       role: 'faculty',
       department: departmentId,
       phone,
-      specialization: subject,
       qualification,
       experience,
       designation,
-      status: 'active'
+      status: 'active',
+      subjects: subjectsArr
     });
 
     await newFaculty.save();
@@ -333,13 +337,19 @@ const createFaculty = async (req, res) => {
       $push: { faculty: newFaculty._id }
     });
 
+    // Update Subject model - add faculty to each subject's faculty array
+    await Subject.updateMany(
+      { _id: { $in: subjectIds } },
+      { $addToSet: { faculty: newFaculty._id } }
+    );
+
     // TODO: Send email with temporary password
-    console.log(`Temporary password for ${email}: ${tempPassword}`);
+    console.log(`Temporary password for ${email}: ${password}`);
 
     res.status(201).json({ 
       message: 'Faculty created successfully', 
       faculty: newFaculty,
-      tempPassword 
+ 
     });
   } catch (error) {
     console.error('Create faculty error:', error);
@@ -350,7 +360,7 @@ const createFaculty = async (req, res) => {
 const updateFaculty = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, subject, qualification, experience, designation } = req.body;
+    const { name, email, phone, qualification, experience, designation, subjectIds } = req.body;
     const departmentId = req.user.department;
 
     const facultyToUpdate = await User.findOne({ 
@@ -371,13 +381,27 @@ const updateFaculty = async (req, res) => {
       }
     }
 
+    // Remove faculty from all subjects in this department
+    await Subject.updateMany(
+      { faculty: id, department: departmentId },
+      { $pull: { faculty: id } }
+    );
+
+    // Add faculty to new subjects
+    const subjectDocs = await Subject.find({ _id: { $in: subjectIds }, department: departmentId });
+    const subjectsArr = subjectDocs.map(s => ({ _id: s._id, name: s.name }));
+    await Subject.updateMany(
+      { _id: { $in: subjectIds } },
+      { $addToSet: { faculty: id } }
+    );
+
     facultyToUpdate.name = name;
     facultyToUpdate.email = email;
     facultyToUpdate.phone = phone;
-    facultyToUpdate.specialization = subject;
     facultyToUpdate.qualification = qualification;
     facultyToUpdate.experience = experience;
     facultyToUpdate.designation = designation;
+    facultyToUpdate.subjects = subjectsArr;
 
     await facultyToUpdate.save();
 
@@ -624,8 +648,8 @@ const getStudents = async (req, res) => {
 const createStudent = async (req, res) => {
   try {
     const { 
-      name, email, phone, rollNumber, class: className, semester, 
-      address, parentName, parentPhone 
+      name, email, phone, rollNumber, classId, className, semester, 
+      address, parentName, parentPhone , password
     } = req.body;
     const departmentId = req.user.department;
 
@@ -635,17 +659,14 @@ const createStudent = async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Find class by name
-    const [tempClassName, tempSemester] = className.split('-');
+    // Find class by ID
     const classObj = await Class.findOne({ 
-      name: tempClassName, 
-      semester: semester,
+      _id: classId,
       department: departmentId 
     });
 
     // Generate temporary password
-    const tempPassword = crypto.randomBytes(8).toString('hex');
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newStudent = new User({
       name,
@@ -653,7 +674,8 @@ const createStudent = async (req, res) => {
       password: hashedPassword,
       role: 'student',
       department: departmentId,
-      class: classObj?._id,
+      class: classId || classObj?._id,
+      className: className || classObj?.name || '',
       phone,
       rollNumber,
       semester,
@@ -679,12 +701,12 @@ const createStudent = async (req, res) => {
     });
 
     // TODO: Send email with temporary password
-    console.log(`Temporary password for ${email}: ${tempPassword}`);
+    console.log(`Temporary password for ${email}: ${password}`);
 
     res.status(201).json({ 
       message: 'Student created successfully', 
       student: newStudent,
-      tempPassword 
+       
     });
   } catch (error) {
     console.error('Create student error:', error);
@@ -696,7 +718,7 @@ const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      name, email, phone, rollNumber, class: className, semester, 
+      name, email, phone, rollNumber, classId, className, semester, 
       address, parentName, parentPhone 
     } = req.body;
     const departmentId = req.user.department;
@@ -719,11 +741,9 @@ const updateStudent = async (req, res) => {
       }
     }
 
-    // Find class by name
-    const [tempClassName, tempSemester] = className.split('-');
+    // Find class by ID
     const classObj = await Class.findOne({ 
-      name: tempClassName, 
-      semester: semester,
+      _id: classId,
       department: departmentId 
     });
 
@@ -752,13 +772,13 @@ const updateStudent = async (req, res) => {
     studentToUpdate.phone = phone;
     studentToUpdate.rollNumber = rollNumber;
     studentToUpdate.class = classObj?._id;
+    studentToUpdate.className = className || classObj?.name || '';
     studentToUpdate.semester = semester;
     studentToUpdate.address = address;
     studentToUpdate.parentName = parentName;
     studentToUpdate.parentPhone = parentPhone;
 
     await studentToUpdate.save();
-
     res.json({ message: 'Student updated successfully', student: studentToUpdate });
   } catch (error) {
     console.error('Update student error:', error);

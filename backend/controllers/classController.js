@@ -5,6 +5,7 @@ const Timetable = require('../models/Timetable');
 
 exports.addClass = async (req, res) => {
   try {
+
     if (req.user.role !== 'departmentAdmin') {
       return res.status(403).json({ message: 'Access denied. Only department admins can add classes.' });
     }
@@ -138,7 +139,7 @@ exports.updateClass = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { name, classTeacherId, capacity, status } = req.body;
+    const { name, classTeacherId, capacity, status,semester,academicYear } = req.body;
     
     const classData = await Class.findById(id);
     if (!classData) {
@@ -155,7 +156,8 @@ exports.updateClass = async (req, res) => {
     if (classTeacherId) classData.classTeacher = classTeacherId;
     if (capacity) classData.capacity = capacity;
     if (status) classData.status = status;
-    
+    if (semester) classData.semester = semester;
+    if (academicYear) classData.academicYear = academicYear;
     await classData.save();
     
     const updatedClass = await Class.findById(id)

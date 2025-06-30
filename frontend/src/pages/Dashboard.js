@@ -19,6 +19,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [user]);
+  
 
   const fetchDashboardData = async () => {
     try {
@@ -49,10 +50,10 @@ const Dashboard = () => {
         ];
       case 'departmentAdmin':
         return [
-          { title: 'Manage Faculty', path: '/department-admin/faculty', icon: '👨‍🏫' },
-          { title: 'Manage Students', path: '/department-admin/students', icon: '👨‍🎓' },
           { title: 'Manage Classes', path: '/department-admin/classes', icon: '📚' },
-          { title: 'Manage Subjects', path: '/department-admin/subjects', icon: '📖' }
+          { title: 'Manage Subjects', path: '/department-admin/subjects', icon: '📖' },
+          { title: 'Manage Faculty', path: '/department-admin/faculty', icon: '👨‍🏫' },
+          { title: 'Manage Students', path: '/department-admin/students', icon: '👨‍🎓' }
         ];
       case 'faculty':
         return [
@@ -84,10 +85,10 @@ const Dashboard = () => {
         ];
       case 'departmentAdmin':
         return [
-          { title: 'Department Faculty', value: stats.departmentFaculty || 0, icon: '👨‍🏫', color: '#007bff' },
-          { title: 'Department Students', value: stats.departmentStudents || 0, icon: '👨‍🎓', color: '#28a745' },
           { title: 'Department Classes', value: stats.departmentClasses || 0, icon: '📚', color: '#ffc107' },
-          { title: 'Department Subjects', value: stats.departmentSubjects || 0, icon: '📖', color: '#dc3545' }
+          { title: 'Department Subjects', value: stats.departmentSubjects || 0, icon: '📖', color: '#dc3545' },
+          { title: 'Department Faculty', value: stats.departmentFaculty || 0, icon: '👨‍🏫', color: '#007bff' },
+          { title: 'Department Students', value: stats.departmentStudents || 0, icon: '👨‍🎓', color: '#28a745' }
         ];
       case 'faculty':
         return [
@@ -153,7 +154,8 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <div className="quick-actions-section">
-        <h2>Quick Actions</h2>
+        <h2>All Features</h2>
+        <p className="dashboard-note">All your functionalities are accessible from here.</p>
         <div className="quick-actions-grid">
           {getRoleBasedQuickActions().map((action, index) => (
             <a key={index} href={action.path} className="quick-action-card">

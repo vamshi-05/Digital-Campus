@@ -18,16 +18,20 @@ export default function Login() {
   if (user) {
     // Redirect based on role
     if (user.role === 'admin') {
-      return <Navigate to="/super-admin/dashboard" />;
+      // return <Navigate to="/super-admin/dashboard" />;
+      return <Navigate to="/dashboard" />;
     }
     else if (user.role === 'departmentAdmin') {
-      return <Navigate to="/department-admin/dashboard" />;
+      // return <Navigate to="/department-admin/dashboard" />;
+      return <Navigate to="/dashboard" />;
     }
-    else if (user.role === 'teacher') {
-      return <Navigate to="/teacher/dashboard" />;
+    else if (user.role === 'faculty') {
+      // return <Navigate to="/teacher/dashboard" />;
+      return <Navigate to="/dashboard" />;
     }
     else if (user.role === 'student') {
-      return <Navigate to="/student/dashboard" />;
+      // return <Navigate to="/student/dashboard" />;
+      return <Navigate to="/dashboard" />;
     }
     else{
       return <Navigate to="/login" />;

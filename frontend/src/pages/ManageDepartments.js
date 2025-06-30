@@ -6,7 +6,7 @@ import { handleError, handleSuccess } from '../utils/toast';
 import '../styles/manage-departments.css';
 
 export default function ManageDepartments() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,15 +30,6 @@ export default function ManageDepartments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
-  
-  // Only Admin can access this page
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/dashboard" />;
-  }
-
   const fetchDepartments = async () => {
     try {
       const response = await api.get('/department/all');
@@ -51,6 +42,28 @@ export default function ManageDepartments() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+  
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="manage-departments-container">
+        <div className="manage-departments-header">
+          <h1 className="manage-departments-title">Manage Departments</h1>
+          <p className="manage-departments-subtitle">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Only Admin can access this page
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/dashboard" />;
+  }
+
 
   const handleAddDepartment = async (e) => {
     e.preventDefault();

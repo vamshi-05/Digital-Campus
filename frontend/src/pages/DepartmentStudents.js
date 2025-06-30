@@ -18,12 +18,14 @@ const DepartmentStudents = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const password = process.env.REACT_APP_STUDENT_TEMP_PASSWORD || 'Student@123';
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     rollNumber: '',
-    class: '',
+    classId: '',
+    className: '',
     semester: '',
     department: '',
     address: '',
@@ -54,19 +56,23 @@ const DepartmentStudents = () => {
   const handleAddStudent = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/department-admin/students', formData);
+      await axios.post('/department-admin/students', {
+        ...formData,
+        password: password
+      });
       setShowAddModal(false);
       setFormData({
         name: '',
         email: '',
         phone: '',
         rollNumber: '',
-        class: '',
+        classId: '',
+        className: '',
         semester: '',
         department: '',
         address: '',
         parentName: '',
-        parentPhone: ''
+        parentPhone: '',
       });
       fetchData();
     } catch (error) {
@@ -85,7 +91,8 @@ const DepartmentStudents = () => {
         email: '',
         phone: '',
         rollNumber: '',
-        class: '',
+        classId: '',
+        className: '',
         semester: '',
         department: '',
         address: '',
@@ -127,7 +134,8 @@ const DepartmentStudents = () => {
       email: student.email,
       phone: student.phone,
       rollNumber: student.rollNumber,
-      class: student.class,
+      classId: student.classId || '',
+      className: student.className || '',
       semester: student.semester,
       department: student.department,
       address: student.address,
@@ -175,7 +183,7 @@ const DepartmentStudents = () => {
           <h1>Department Students</h1>
           <p>Manage students for {user.department}</p>
         </div>
-        <Link to="/department-admin/dashboard" className="back-btn">
+        <Link to="/dashboard" className="back-btn">
           ← Back to Dashboard
         </Link>
       </div>
@@ -229,7 +237,19 @@ const DepartmentStudents = () => {
         
         <button
           className="add-btn"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {setShowAddModal(true); setFormData({
+            name: '',
+            email: '',
+            phone: '',
+            rollNumber: '',
+            classId: '',
+            className: '',
+            semester: '',
+            department: '',
+            address: '',
+            parentName: '',
+            parentPhone: ''
+          });}}
         >
           + Add New Student
         </button>
@@ -388,33 +408,37 @@ const DepartmentStudents = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Class</label>
+                  <label>Semester</label>
                   <select
-                    value={formData.class}
-                    onChange={(e) => setFormData({...formData, class: e.target.value})}
+                    value={formData.semester}
+                    onChange={e => setFormData({ ...formData, semester: e.target.value, classId: '', className: '' })}
                     required
                   >
-                    <option value="">Select Class</option>
-                    {classes.map(cls => (
-                      <option key={cls._id} value={`${cls.name}-${cls.semester}`}>
-                        {cls.name} - {cls.semester}
-                      </option>
+                    <option value=''>Select Semester</option>
+                    {semesters.map(sem => (
+                      <option key={sem} value={sem}>{sem}</option>
                     ))}
                   </select>
                 </div>
                 
                 <div className="form-group">
-                  <label>Semester</label>
+                  <label>Class</label>
                   <select
-                    value={formData.semester}
-                    onChange={(e) => setFormData({...formData, semester: e.target.value})}
+                    value={formData.classId}
+                    onChange={e => {
+                      const selectedClass = classes.find(cls => cls._id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        classId: selectedClass?._id || '',
+                        className: selectedClass?.name || ''
+                      });
+                    }}
                     required
+                    disabled={!formData.semester}
                   >
-                    <option value="">Select Semester</option>
-                    {semesters.map(semester => (
-                      <option key={semester} value={semester}>
-                        {semester}
-                      </option>
+                    <option value=''>Select Class</option>
+                    {classes.filter(cls => cls.semester === formData.semester).map(cls => (
+                      <option key={cls._id} value={cls._id}>{cls.name}</option>
                     ))}
                   </select>
                 </div>
@@ -523,33 +547,37 @@ const DepartmentStudents = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Class</label>
+                  <label>Semester</label>
                   <select
-                    value={formData.class}
-                    onChange={(e) => setFormData({...formData, class: e.target.value})}
+                    value={formData.semester}
+                    onChange={e => setFormData({ ...formData, semester: e.target.value, classId: '', className: '' })}
                     required
                   >
-                    <option value="">Select Class</option>
-                    {classes.map(cls => (
-                      <option key={cls._id} value={`${cls.name}-${cls.semester}`}>
-                        {cls.name} - {cls.semester}
-                      </option>
+                    <option value=''>Select Semester</option>
+                    {semesters.map(sem => (
+                      <option key={sem} value={sem}>{sem}</option>
                     ))}
                   </select>
                 </div>
                 
                 <div className="form-group">
-                  <label>Semester</label>
+                  <label>Class</label>
                   <select
-                    value={formData.semester}
-                    onChange={(e) => setFormData({...formData, semester: e.target.value})}
+                    value={formData.classId}
+                    onChange={e => {
+                      const selectedClass = classes.find(cls => cls._id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        classId: selectedClass?._id || '',
+                        className: selectedClass?.name || ''
+                      });
+                    }}
                     required
+                    disabled={!formData.semester}
                   >
-                    <option value="">Select Semester</option>
-                    {semesters.map(semester => (
-                      <option key={semester} value={semester}>
-                        {semester}
-                      </option>
+                    <option value=''>Select Class</option>
+                    {classes.filter(cls => cls.semester === formData.semester).map(cls => (
+                      <option key={cls._id} value={cls._id}>{cls.name}</option>
                     ))}
                   </select>
                 </div>

@@ -148,7 +148,7 @@ const DepartmentClasses = () => {
           <h1>Department Classes</h1>
           <p>Manage class sections in your department</p>
         </div>
-        <Link to="/department-admin/dashboard" className="back-btn">
+        <Link to="/dashboard" className="back-btn">
           ← Back to Dashboard
         </Link>
       </div>
@@ -195,7 +195,14 @@ const DepartmentClasses = () => {
         
         <button
           className="add-btn"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {setShowAddModal(true); setFormData({
+            name: '',
+            classTeacherId: '',
+            academicYear: '',
+            semester: '',
+            capacity: 60,
+            status: 'active'
+          });}}
         >
           + Add New Class
         </button>
@@ -380,7 +387,14 @@ const DepartmentClasses = () => {
               </div>
               
               <div className="modal-actions">
-                <button type="button" onClick={() => setShowAddModal(false)}>
+                <button type="button" onClick={() => {setShowAddModal(false); setFormData({
+        name: '',
+        classTeacherId: '',
+        academicYear: '',
+        semester: '',
+        capacity: 60,
+        status: 'active'
+      });}}>
                   Cancel
                 </button>
                 <button type="submit">Add Class</button>
@@ -426,7 +440,6 @@ const DepartmentClasses = () => {
                 <select
                   value={formData.classTeacherId}
                   onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
-                  required
                 >
                   <option value="">Select Class Teacher</option>
                   {faculty.map(f => (

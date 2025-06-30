@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../api/axios';
-import { useAuth } from '../hooks/useAuth';
+import  useAuth  from '../hooks/useAuth';
 import '../styles/chat-interface.css';
 
 const ChatInterface = () => {

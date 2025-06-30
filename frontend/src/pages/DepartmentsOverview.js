@@ -5,9 +5,10 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import api from '../api/axios';
 import { handleError } from '../utils/toast';
+// import '../styles/departments-overview.css';
 
 export default function DepartmentsOverview() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -16,11 +17,6 @@ export default function DepartmentsOverview() {
     fetchDepartments();
   }, []);
   
-  // Only Admin can access this page
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/dashboard" />;
-  }
-
   const fetchDepartments = async () => {
     try {
       const response = await api.get('/department/all');
@@ -31,6 +27,23 @@ export default function DepartmentsOverview() {
       setLoading(false);
     }
   };
+
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="departments-overview-container">
+        <div className="departments-overview-header">
+          <h1 className="departments-overview-title">Departments Overview</h1>
+          <p className="departments-overview-subtitle">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Only Admin can access this page
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/dashboard" />;
+  }
 
   if (loading) {
     return (

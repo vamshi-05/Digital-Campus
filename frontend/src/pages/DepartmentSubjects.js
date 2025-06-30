@@ -141,7 +141,7 @@ const DepartmentSubjects = () => {
           <h1>Department Subjects</h1>
           <p>Manage subjects for {user.department}</p>
         </div>
-        <Link to="/department-admin/dashboard" className="back-btn">
+        <Link to="/dashboard" className="back-btn">
           ← Back to Dashboard
         </Link>
       </div>

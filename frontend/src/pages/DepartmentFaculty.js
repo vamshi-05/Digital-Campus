@@ -17,11 +17,12 @@ const DepartmentFaculty = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const password = process.env.REACT_APP_FACULTY_TEMP_PASSWORD || 'Faculty@123';
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    subject: '',
+    subjects: [],
     qualification: '',
     experience: '',
     designation: '',
@@ -38,7 +39,7 @@ const DepartmentFaculty = () => {
         axios.get('/department-admin/faculty'),
         axios.get('/department-admin/subjects-list')
       ]);
-      
+      console.log(facultyRes.data);
       setFaculty(facultyRes.data);
       setSubjects(subjectsRes.data);
     } catch (error) {
@@ -51,17 +52,23 @@ const DepartmentFaculty = () => {
   const handleAddFaculty = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/department-admin/faculty', formData);
+      const subjectIds = formData.subjects.map(s => s._id);
+      await axios.post('/department-admin/faculty', {
+        ...formData,
+        subjectIds,
+        password: password
+      });
       setShowAddModal(false);
       setFormData({
         name: '',
         email: '',
         phone: '',
-        subject: '',
+        subjects: [],
         qualification: '',
         experience: '',
         designation: '',
-        department: ''
+        department: '',
+       
       });
       fetchData();
     } catch (error) {
@@ -72,14 +79,18 @@ const DepartmentFaculty = () => {
   const handleEditFaculty = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`/department-admin/faculty/${selectedFaculty._id}`, formData);
+      const subjectIds = formData.subjects.map(s => s._id);
+      await axios.put(`/department-admin/faculty/${selectedFaculty._id}`, {
+        ...formData,
+        subjectIds
+      });
       setShowEditModal(false);
       setSelectedFaculty(null);
       setFormData({
         name: '',
         email: '',
         phone: '',
-        subject: '',
+        subjects: [],
         qualification: '',
         experience: '',
         designation: '',
@@ -119,7 +130,7 @@ const DepartmentFaculty = () => {
       name: facultyMember.name,
       email: facultyMember.email,
       phone: facultyMember.phone,
-      subject: facultyMember.subject,
+      subjects: Array.isArray(facultyMember.subjects) ? facultyMember.subjects : [],
       qualification: facultyMember.qualification,
       experience: facultyMember.experience,
       designation: facultyMember.designation,
@@ -163,7 +174,7 @@ const DepartmentFaculty = () => {
           <h1>Department Faculty</h1>
           <p>Manage faculty members for {user.department}</p>
         </div>
-        <Link to="/department-admin/dashboard" className="back-btn">
+        <Link to="/dashboard" className="back-btn">
           ← Back to Dashboard
         </Link>
       </div>
@@ -205,7 +216,16 @@ const DepartmentFaculty = () => {
         
         <button
           className="add-btn"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {setShowAddModal(true); setFormData({
+            name: '',
+            email: '',
+            phone: '',
+            subjects: [],
+            qualification: '',
+            experience: '',
+            designation: '',
+            department: ''
+          });}}
         >
           + Add New Faculty
         </button>
@@ -254,7 +274,7 @@ const DepartmentFaculty = () => {
                     <p>{facultyMember.phone}</p>
                   </div>
                 </td>
-                <td>{facultyMember.subject}</td>
+                <td>{facultyMember.subjects?.map(s => s.name).join(', ')}</td>
                 <td>{facultyMember.qualification}</td>
                 <td>{facultyMember.experience} years</td>
                 <td>
@@ -344,15 +364,21 @@ const DepartmentFaculty = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label>Subject</label>
+                  <label>Subjects (can assign multiple subjects)</label>
                   <select
-                    value={formData.subject}
-                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                    multiple
+                    value={formData.subjects.map(s => s._id)}
+                    onChange={e => {
+                      const selectedIds = Array.from(e.target.selectedOptions, option => option.value);
+                      setFormData({
+                        ...formData,
+                        subjects: subjects.filter(s => selectedIds.includes(s._id))
+                      });
+                    }}
                     required
                   >
-                    <option value="">Select Subject</option>
                     {subjects.map(subject => (
-                      <option key={subject._id} value={subject.name}>
+                      <option key={subject._id} value={subject._id}>
                         {subject.name}
                       </option>
                     ))}
@@ -451,15 +477,21 @@ const DepartmentFaculty = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label>Subject</label>
+                  <label>Subjects (can assign multiple subjects)</label>
                   <select
-                    value={formData.subject}
-                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                    multiple
+                    value={formData.subjects.map(s => s._id)}
+                    onChange={e => {
+                      const selectedIds = Array.from(e.target.selectedOptions, option => option.value);
+                      setFormData({
+                        ...formData,
+                        subjects: subjects.filter(s => selectedIds.includes(s._id))
+                      });
+                    }}
                     required
                   >
-                    <option value="">Select Subject</option>
                     {subjects.map(subject => (
-                      <option key={subject._id} value={subject.name}>
+                      <option key={subject._id} value={subject._id}>
                         {subject.name}
                       </option>
                     ))}

@@ -5,37 +5,54 @@ import { motion } from 'framer-motion';
 import useAuth from '../hooks/useAuth';
 import { handleError, showToast } from '../utils/toast';
 import api from '../api/axios';
+// import '../styles/add-department-admin.css';
 
 export default function AddDepartmentAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [form, setForm] = useState({ 
     name: '', 
     email: '', 
     password: '', 
-    department: ''
+    department: '',
+    phone: '',
+    status: 'active'
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [departments, setDepartments] = useState([]);
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Load departments for dropdown
-    const loadDepartments = async () => {
-      try {
-        const response = await api.get('/departments');
-        setDepartments(response.data);
-      } catch (error) {
-        handleError(error, 'Failed to load departments');
-      }
-    };
-    loadDepartments();
+    fetchDepartments();
   }, []);
   
-  
-    // Only Super Admin can access this page
-    if (!user || user.role !== 'admin') {
-      return <Navigate to="/dashboard" />;
+  const fetchDepartments = async () => {
+    try {
+      const response = await api.get('/department/all');
+      setDepartments(response.data);
+    } catch (error) {
+      handleError(error, 'Failed to fetch departments');
+    } finally {
+      setLoading(false);
     }
+  };
+  
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="add-department-admin-container">
+        <div className="add-department-admin-header">
+          <h1 className="add-department-admin-title">Add Department Admin</h1>
+          <p className="add-department-admin-subtitle">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Only Super Admin can access this page
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/dashboard" />;
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
@@ -76,10 +93,12 @@ export default function AddDepartmentAdmin() {
         email: form.email,
         password: form.password,
         role: 'departmentAdmin',
-        department: form.department
+        department: form.department,
+        phone: form.phone,
+        status: form.status
       };
       
-      await api.post('/users', userData);
+      await api.post('/user', userData);
       showToast.success('Department Admin added successfully!');
       
       // Reset form
@@ -87,7 +106,9 @@ export default function AddDepartmentAdmin() {
         name: '', 
         email: '', 
         password: '', 
-        department: ''
+        department: '',
+        phone: '',
+        status: 'active'
       });
     } catch (err) {
       handleError(err, 'Failed to add department admin');
@@ -177,6 +198,30 @@ export default function AddDepartmentAdmin() {
                         <Form.Text className="text-muted">
                           This department admin will manage this specific department.
                         </Form.Text>
+                      </Form.Group>
+                      
+                      <Form.Group className="mb-3" controlId="phone">
+                        <Form.Label>Phone</Form.Label>
+                        <Form.Control 
+                          type="tel" 
+                          name="phone" 
+                          value={form.phone} 
+                          onChange={handleChange} 
+                          placeholder="Enter phone number"
+                        />
+                      </Form.Group>
+                      
+                      <Form.Group className="mb-3" controlId="status">
+                        <Form.Label>Status</Form.Label>
+                        <Form.Select 
+                          name="status" 
+                          value={form.status} 
+                          onChange={handleChange} 
+                          required
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </Form.Select>
                       </Form.Group>
                       
                       <div className="d-grid gap-2">

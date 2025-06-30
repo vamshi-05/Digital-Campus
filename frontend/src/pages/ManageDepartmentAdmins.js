@@ -6,7 +6,7 @@ import { handleError, handleSuccess } from '../utils/toast';
 import '../styles/manage-department-admins.css';
 
 export default function ManageDepartmentAdmins() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [admins, setAdmins] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -46,12 +46,22 @@ export default function ManageDepartmentAdmins() {
     fetchData();
   }, []);
 
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="manage-department-admins-container">
+        <div className="manage-department-admins-header">
+          <h1 className="manage-department-admins-title">Manage Department Admins</h1>
+          <p className="manage-department-admins-subtitle">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Only Admin can access this page
   if (!user || user.role !== 'admin') {
     return <Navigate to="/dashboard" />;
   }
-
-
 
   const handleAddAdmin = async (e) => {
     e.preventDefault();

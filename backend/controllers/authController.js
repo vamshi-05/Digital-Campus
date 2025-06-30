@@ -42,7 +42,7 @@ exports.login = async (req, res) => {
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
     const token = jwt.sign(
-      { user},
+      { user },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -53,6 +53,9 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        department: user.department,
+        class: user.class,
+        status: user.status
       },
     });
   } catch (err) {
@@ -62,11 +65,30 @@ exports.login = async (req, res) => {
 
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.user.userId).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.json(user);
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department,
+      class: user.class,
+      status: user.status,
+      phone: user.phone,
+      specialization: user.specialization,
+      qualification: user.qualification,
+      experience: user.experience,
+      designation: user.designation,
+      isClassTeacher: user.isClassTeacher,
+      rollNumber: user.rollNumber,
+      semester: user.semester,
+      address: user.address,
+      parentName: user.parentName,
+      parentPhone: user.parentPhone
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
