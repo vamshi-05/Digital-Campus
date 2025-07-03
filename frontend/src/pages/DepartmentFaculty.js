@@ -150,9 +150,9 @@ const DepartmentFaculty = () => {
   };
 
   const filteredFaculty = faculty.filter(f => {
-    const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         f.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         f.subject.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = f.name?.toLowerCase()?.includes(searchTerm.toLowerCase()) ||
+                         f.email?.toLowerCase()?.includes(searchTerm.toLowerCase()) ||
+                         f.subject?.name?.toLowerCase()?.includes(searchTerm.toLowerCase());
     const matchesSubject = !filterSubject || f.subject === filterSubject;
     const matchesStatus = !filterStatus || f.status === filterStatus;
     
@@ -290,12 +290,12 @@ const DepartmentFaculty = () => {
                     >
                       Edit
                     </button>
-                    <button
+                    {/* <button
                       className="reset-btn"
                       onClick={() => openResetModal(facultyMember)}
                     >
                       Reset Password
-                    </button>
+                    </button> */}
                     <button
                       className="delete-btn"
                       onClick={() => openDeleteModal(facultyMember)}

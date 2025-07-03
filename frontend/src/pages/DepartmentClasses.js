@@ -29,21 +29,42 @@ const DepartmentClasses = () => {
   });
   const [showTimetableModal, setShowTimetableModal] = useState(false);
   const [timetableClass, setTimetableClass] = useState(null);
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [semesterSubjects, setSemesterSubjects] = useState([]);
+  const [allFaculty, setAllFaculty] = useState([]);
+  const [subjectFacultyAssignments, setSubjectFacultyAssignments] = useState([]); // [{subject, faculty}]
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [facultyModalClass, setFacultyModalClass] = useState(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Fetch all subjects and faculty for department/semester for add form
+  useEffect(() => {
+    if (showAddModal && formData.semester) {
+      fetchSubjectsAndFaculty();
+    }
+  }, [showAddModal, formData.semester]);
+
+  // Reset assignments if semester changes
+  useEffect(() => {
+    setSubjectFacultyAssignments([]);
+    console.log(formData.semester, formData.academicYear);
+    setSemesterSubjects(allSubjects.filter(s => s.semester === formData.semester));
+    console.log(allSubjects);
+    console.log(semesterSubjects);
+  }, [formData.semester, formData.academicYear]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log(user);
       // For department admins, fetch only their department's data
       const [classesRes, facultyRes] = await Promise.all([
         api.get(`/class/all?departmentId=${user.department}`),
         api.get(`/user/faculty?departmentId=${user.department}`)
       ]);
-      
+     
       setClasses(classesRes.data);
       setFaculty(facultyRes.data);
     } catch (error) {
@@ -53,16 +74,39 @@ const DepartmentClasses = () => {
     }
   };
 
+  const fetchSubjectsAndFaculty = async () => {
+    try {
+      const [subjectsRes, facultyRes] = await Promise.all([
+        api.get(`/department-admin/subjects-list?departmentId=${user.department}&semester=${formData.semester}&academicYear=${formData.academicYear}`),
+        api.get(`/user/faculty?departmentId=${user.department}`)
+      ]);
+      console.log(subjectsRes.data);
+      setAllSubjects(subjectsRes.data);
+      setAllFaculty(facultyRes.data);
+      setSubjectFacultyAssignments(subjectsRes.data.map(s => ({ subject: s._id, faculty: '' })));
+    } catch (err) {
+      setAllSubjects([]);
+      setAllFaculty([]);
+      setSubjectFacultyAssignments([]);
+    }
+  };
+
+  const handleAssignmentChange = (subjectId, facultyId) => {
+    console.log(subjectId, facultyId);
+    console.log(subjectFacultyAssignments);
+    setSubjectFacultyAssignments(prev => prev.map(a =>
+      a.subject === subjectId ? { ...a, faculty: facultyId } : a
+    ));
+  };
+
   const handleAddClass = async (e) => {
     e.preventDefault();
     try {
-      // Automatically assign the department admin's department
-      const classData = {
+      await api.post('/class/add', {
         ...formData,
-        departmentId: user.department
-      };
-      
-      await api.post('/class/add', classData);
+        departmentId: user.department,
+        subjects: subjectFacultyAssignments.filter(a => a.faculty)
+      });
       setShowAddModal(false);
       setFormData({
         name: '',
@@ -72,16 +116,54 @@ const DepartmentClasses = () => {
         capacity: 60,
         status: 'active'
       });
+      setSubjectFacultyAssignments([]);
       fetchData();
     } catch (error) {
       console.error('Error adding class:', error);
     }
   };
 
+  const openEditModal = async (classData) => {
+    console.log(classData);
+    setSelectedClass(classData);
+    setFormData({
+      name: classData.name,
+      classTeacherId: classData.classTeacher?._id || '',
+      academicYear: classData.academicYear,
+      semester: classData.semester,
+      capacity: classData.capacity,
+      status: classData.status
+    });
+    // Prefill assignments for the class's subjects
+
+    setSemesterSubjects(allSubjects.filter(s => s.semester === classData.semester));
+    if(classData.subjects && classData.subjects.length > 0){
+    setSubjectFacultyAssignments(
+      (classData.subjects || []).map(s => ({
+        subject: s.subject._id || s.subject,
+        faculty: s.faculty?._id || s.faculty || ''
+      }))
+    );
+  }
+  else{
+    const [subjectsRes, facultyRes] = await Promise.all([
+      api.get(`/department-admin/subjects-list?departmentId=${user.department}&semester=${formData.semester}&academicYear=${formData.academicYear}`),
+      api.get(`/user/faculty?departmentId=${user.department}`)
+    ]);
+    setAllFaculty(facultyRes.data);
+    setAllSubjects(subjectsRes.data);
+    setSubjectFacultyAssignments(subjectsRes.data.filter(s => s.semester === classData.semester).map(s => ({ subject: s._id, faculty: '' })));
+  }
+    setShowEditModal(true);
+  };
+
   const handleEditClass = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/class/${selectedClass._id}`, formData);
+      await api.put(`/class/${selectedClass._id}`, {
+        ...formData,
+        subjects: subjectFacultyAssignments // allow empty faculty
+      });
       setShowEditModal(false);
       setSelectedClass(null);
       setFormData({
@@ -92,11 +174,20 @@ const DepartmentClasses = () => {
         capacity: 60,
         status: 'active'
       });
+      setSubjectFacultyAssignments([]);
       fetchData();
     } catch (error) {
       console.error('Error updating class:', error);
     }
   };
+
+  // When semester changes in edit form, update subject list and reset assignments
+  useEffect(() => {
+    if (showEditModal) {
+      setSemesterSubjects(allSubjects.filter(s => s.semester === formData.semester));
+      
+    }
+  }, [formData.semester, formData.academicYear, showEditModal, allSubjects]);
 
   const handleDeleteClass = async () => {
     try {
@@ -109,22 +200,19 @@ const DepartmentClasses = () => {
     }
   };
 
-  const openEditModal = (classData) => {
-    setSelectedClass(classData);
-    setFormData({
-      name: classData.name,
-      classTeacherId: classData.classTeacher?._id || '',
-      academicYear: classData.academicYear,
-      semester: classData.semester,
-      capacity: classData.capacity,
-      status: classData.status
-    });
-    setShowEditModal(true);
-  };
-
   const openDeleteModal = (classData) => {
     setSelectedClass(classData);
     setShowDeleteModal(true);
+  };
+
+  const openFacultyModal = (cls) => {
+    setFacultyModalClass(cls);
+    setShowFacultyModal(true);
+  };
+
+  const closeFacultyModal = () => {
+    setShowFacultyModal(false);
+    setFacultyModalClass(null);
   };
 
   const filteredClasses = classes.filter(cls => {
@@ -280,6 +368,12 @@ const DepartmentClasses = () => {
                         {cls.timetable ? "Edit Timetable" : "Create Timetable"}
                       </button>
                     )}
+                    <button
+                      className="view-faculty-btn"
+                      onClick={() => openFacultyModal(cls)}
+                    >
+                      View Assigned Faculty
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -299,231 +393,264 @@ const DepartmentClasses = () => {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2>Add New Class</h2>
-              <button
-                className="close-btn"
-                onClick={() => {setShowAddModal(false); setFormData({
-                  name: '',
-                  classTeacherId: '',
-                  academicYear: '',
-                  semester: '',
-                  capacity: 60,
-                  status: 'active'
-                });}}
-              >
-                ×
-              </button>
+              <h2>Add Class</h2>
+              <button onClick={() => setShowAddModal(false)} className="close-btn">×</button>
             </div>
             <form onSubmit={handleAddClass}>
-              <div className="form-group">
-                <label>Class Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  required
-                />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Class Name *</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g., A, B, C"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Academic Year</label>
+                  <select
+                    value={formData.academicYear}
+                    onChange={e => setFormData({ ...formData, academicYear: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Academic Year</option>
+                    <option value="2025-26">2025-26</option>
+                    <option value="2024-25">2024-25</option>
+                    <option value="2023-24">2023-24</option>
+                    <option value="2022-23">2022-23</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Class Teacher</label>
-                <select
-                  value={formData.classTeacherId}
-                  onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
-                  
-                >
-                  <option value="-">Select Class Teacher (Can add after )</option>
-                  {faculty.map(f => (
-                    <option key={f._id} value={f._id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Class Teacher</label>
+                  <select
+                    value={formData.classTeacherId}
+                    onChange={e => setFormData({ ...formData, classTeacherId: e.target.value })}
+                  >
+                    <option value="">Select Class Teacher</option>
+                    {faculty.map(f => (
+                      <option key={f._id} value={f._id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Semester</label>
+                  <select
+                    value={formData.semester}
+                    onChange={e => setFormData({ ...formData, semester: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Semester</option>
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="3rd Semester">3rd Semester</option>
+                    <option value="4th Semester">4th Semester</option>
+                    <option value="5th Semester">5th Semester</option>
+                    <option value="6th Semester">6th Semester</option>
+                    <option value="7th Semester">7th Semester</option>
+                    <option value="8th Semester">8th Semester</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Academic Year</label>
-                <select
-                  value={formData.academicYear}
-                  onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
-                  required
-                >
-                  <option value="">Select Academic Year</option>
-                  <option value="2025-26">2025-26</option>
-                  <option value="2024-25">2024-25</option>
-                  <option value="2023-24">2023-24</option>
-                  <option value="2022-23">2022-23</option>
-                </select>
+              <div className="form-row">
+                {/* <div className="form-group">
+                  <label>Capacity</label>
+                  <input
+                    type="number"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                    min="1"
+                    max="200"
+                    required
+                  />
+                </div> */}
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={e => setFormData({ ...formData, status: e.target.value })}
+                    required
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Semester</label>
-                <select
-                  value={formData.semester}
-                  onChange={(e) => setFormData({...formData, semester: e.target.value})}
-                  required
-                >
-                  <option value="">Select Semester</option>
-                  <option value="1st Semester">1st Semester</option>
-                  <option value="2nd Semester">2nd Semester</option>
-                  <option value="3rd Semester">3rd Semester</option>
-                  <option value="4th Semester">4th Semester</option>
-                  <option value="5th Semester">5th Semester</option>
-                  <option value="6th Semester">6th Semester</option>
-                  <option value="7th Semester">7th Semester</option>
-                  <option value="8th Semester">8th Semester</option>
-                </select>
-              </div>
-              
-              {/* <div className="form-group">
-                <label>Capacity</label>
-                <input
-                  type="number"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                  required
-                />
-              </div> */}
-              
-              <div className="form-group">
-                <label>Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  required
-                >
-                  <option value="">Select Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              
+
+              {semesterSubjects.length > 0 && (
+                <div className="subject-assignment-section">
+                  <h3>Assign Faculty to Subjects</h3>
+                  <div className="subject-cards-grid">
+                    {semesterSubjects.map(subject => (
+                      <div key={subject._id} className="subject-card enhanced">
+                        <div className="subject-info">
+                          <strong>{subject.name}</strong>
+                          <div className="subject-meta">Code: {subject.code} | Credits: {subject.credits}</div>
+                          <div className="subject-meta">Semester: {subject.semester}</div>
+                        </div>
+                        <div className="faculty-select-row">
+                          <label>Faculty</label>
+                          <select
+                            value={subjectFacultyAssignments.find(a => a.subject === subject._id)?.faculty || ''}
+                            onChange={e => handleAssignmentChange(subject._id, e.target.value)}
+                            
+                          >
+                            <option value="">Select Faculty</option>
+                            {allFaculty.filter(fac => subject.faculty?.includes(fac._id)).map(fac => (
+                              <option key={fac._id} value={fac._id}>{fac.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="modal-actions">
-                <button type="button" onClick={() => {setShowAddModal(false); setFormData({
-        name: '',
-        classTeacherId: '',
-        academicYear: '',
-        semester: '',
-        capacity: 60,
-        status: 'active'
-      });}}>
+                <button type="button" onClick={() => setShowAddModal(false)} className="cancel-btn">
                   Cancel
                 </button>
-                <button type="submit">Add Class</button>
+                <button type="submit" className="submit-btn">
+                  Add Class
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Class Modal */}
+      {/* Edit Class Modal */}  
       {showEditModal && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
               <h2>Edit Class</h2>
-              <button
-                className="close-btn"
-                onClick={() => {setFormData({
-                  name: '',
-                  classTeacherId: '',
-                  academicYear: '',
-                  semester: '',
-                  capacity: 60,
-                  status: 'active'
-                }); setShowEditModal(false)}}
-              >
-                ×
-              </button>
+              <button onClick={() => setShowEditModal(false)} className="close-btn">×</button>
             </div>
             <form onSubmit={handleEditClass}>
-              <div className="form-group">
-                <label>Class Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  required
-                />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Class Name *</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g., A, B, C"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Academic Year</label>
+                  <select
+                    value={formData.academicYear}
+                    onChange={e => setFormData({ ...formData, academicYear: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Academic Year</option>
+                    <option value="2025-26">2025-26</option>
+                    <option value="2024-25">2024-25</option>
+                    <option value="2023-24">2023-24</option>
+                    <option value="2022-23">2022-23</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Class Teacher</label>
-                <select
-                  value={formData.classTeacherId}
-                  onChange={(e) => setFormData({...formData, classTeacherId: e.target.value})}
-                >
-                  <option value="">Select Class Teacher</option>
-                  {faculty.map(f => (
-                    <option key={f._id} value={f._id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Class Teacher</label>
+                  <select
+                    value={formData.classTeacherId}
+                    onChange={e => setFormData({ ...formData, classTeacherId: e.target.value })}
+                  >
+                    <option value="">Select Class Teacher</option>
+                    {faculty.map(f => (
+                      <option key={f._id} value={f._id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Semester</label>
+                  <select
+                    value={formData.semester}
+                    onChange={e => setFormData({ ...formData, semester: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Semester</option>
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="3rd Semester">3rd Semester</option>
+                    <option value="4th Semester">4th Semester</option>
+                    <option value="5th Semester">5th Semester</option>
+                    <option value="6th Semester">6th Semester</option>
+                    <option value="7th Semester">7th Semester</option>
+                    <option value="8th Semester">8th Semester</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Academic Year</label>
-                <select
-                  value={formData.academicYear}
-                  onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
-                  required
-                >
-                  <option value="">Select Academic Year</option>
-                  <option value="2025-26">2025-26</option>
-                  <option value="2024-25">2024-25</option>
-                  <option value="2023-24">2023-24</option>
-                  <option value="2022-23">2022-23</option>
-                </select>
+              <div className="form-row">
+                {/* <div className="form-group">
+                  <label>Capacity</label>
+                  <input
+                    type="number"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                    min="1"
+                    max="200"
+                    required
+                  />
+                </div> */}
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={e => setFormData({ ...formData, status: e.target.value })}
+                    required
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Semester</label>
-                <select
-                  value={formData.semester}
-                  onChange={(e) => setFormData({...formData, semester: e.target.value})}
-                  required
-                >
-                  <option value="">Select Semester</option>
-                  <option value="1st Semester">1st Semester</option>
-                  <option value="2nd Semester">2nd Semester</option>
-                  <option value="3rd Semester">3rd Semester</option>
-                  <option value="4th Semester">4th Semester</option>
-                  <option value="5th Semester">5th Semester</option>
-                  <option value="6th Semester">6th Semester</option>
-                  <option value="7th Semester">7th Semester</option>
-                  <option value="8th Semester">8th Semester</option>
-                </select>
-              </div>
-              
-              {/* <div className="form-group">
-                <label>Capacity</label>
-                <input
-                  type="number"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                  required
-                />
-              </div> */}
-              
-              <div className="form-group">
-                <label>Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  required
-                >
-                  <option value="">Select Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              
+
+              {semesterSubjects.length > 0 && (
+                <div className="subject-assignment-section">
+                  <h3>Assign Faculty to Subjects</h3>
+                  <div className="subject-cards-grid">
+                    {semesterSubjects.map(subject => (
+                      <div key={subject._id} className="subject-card enhanced">
+                        <div className="subject-info">
+                          <strong>{subject.name}</strong>
+                          <div className="subject-meta">Code: {subject.code} | Credits: {subject.credits}</div>
+                          <div className="subject-meta">Semester: {subject.semester}</div>
+                        </div>
+                        <div className="faculty-select-row">
+                          <label>Faculty</label>
+                          {console.log(subjectFacultyAssignments)}
+                          <select
+                            value={subjectFacultyAssignments.find(a => a.subject === subject._id)?.faculty || ''}
+                            onChange={e => handleAssignmentChange(subject._id, e.target.value)}
+                            
+                          >
+                            <option value="">Select Faculty</option>
+                            {allFaculty.filter(fac => subject.faculty?.includes(fac._id)).map(fac => (
+                              <option key={fac._id} value={fac._id}>{fac.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="modal-actions">
-                <button type="button" onClick={() => setShowEditModal(false)}>
+                <button type="button" onClick={() => setShowEditModal(false)} className="cancel-btn">
                   Cancel
                 </button>
-                <button type="submit">Update Class</button>
+                <button type="submit" className="submit-btn">
+                  Update Class
+                </button>
               </div>
             </form>
           </div>
@@ -571,6 +698,43 @@ const DepartmentClasses = () => {
               className={timetableClass.name}
               onSuccess={() => { setShowTimetableModal(false); fetchData(); }}
             />
+          </div>
+        </div>
+      )}
+
+      {showFacultyModal && facultyModalClass && (
+        console.log(facultyModalClass),
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Assigned Faculty for {facultyModalClass.name}</h2>
+              <button onClick={closeFacultyModal} className="close-btn">×</button>
+            </div>
+            <div className="modal-content">
+              {facultyModalClass.subjects && facultyModalClass.subjects.length > 0 ? (
+                <table className="assigned-faculty-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Faculty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facultyModalClass.subjects.map((s, idx) => (
+                      <tr key={idx}>
+                        <td>{s.subject?.name || s.subject?.code || 'Unknown'}</td>
+                        <td>{s.faculty?.name || 'Not Assigned'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No subjects assigned to this class.</p>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button onClick={closeFacultyModal} className="cancel-btn">Close</button>
+            </div>
           </div>
         </div>
       )}

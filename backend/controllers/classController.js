@@ -155,6 +155,7 @@ exports.updateClass = async (req, res) => {
     }
     
     // Update class data
+    console.log(subjects);
     if (name) classData.name = name;
     if (classTeacherId) classData.classTeacher = classTeacherId;
     if (capacity) classData.capacity = capacity;
@@ -177,6 +178,7 @@ exports.updateClass = async (req, res) => {
     
     res.json(updatedClass);
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };

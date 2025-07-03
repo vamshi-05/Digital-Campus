@@ -184,7 +184,14 @@ const DepartmentSubjects = () => {
         
         <button
           className="add-btn"
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {setShowAddModal(true); setFormData({
+            name: '',
+            code: '',
+            description: '',
+            credits: '',
+            semester: '',
+            department: ''
+          });}}
         >
           + Add New Subject
         </button>

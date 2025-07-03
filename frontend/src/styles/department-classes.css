@@ -234,7 +234,7 @@
 .modal.timetable-modal {
   background: #fff;
   border-radius: 8px;
-  max-width: 900px;
+  max-width: 1000px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -432,4 +432,16 @@
 
 .timetable-btn:hover {
   background-color: #0056b3;
-} 
+}
+
+.subject-assignment-section { margin: 24px 0; }
+.subject-cards-grid { display: flex; flex-wrap: wrap; gap: 18px; }
+.subject-card.enhanced { background: #f8f9fa; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); padding: 20px 22px; min-width: 260px; max-width: 340px; flex: 1 1 260px; display: flex; flex-direction: column; gap: 14px; border: 1.5px solid #e0e0e0; transition: box-shadow 0.2s, border 0.2s; }
+.subject-card.enhanced:hover { box-shadow: 0 8px 32px rgba(33,150,243,0.10); border: 1.5px solid #2196f3; }
+.subject-info { margin-bottom: 8px; }
+.subject-meta { color: #6c757d; font-size: 0.95rem; margin-top: 2px; }
+.faculty-select-row { display: flex; flex-direction: column; gap: 4px; }
+.subject-card.enhanced strong { font-size: 1.08rem; color: #1976d2; }
+.subject-card.enhanced label { font-weight: 500; color: #333; margin-bottom: 2px; }
+.subject-card.enhanced select { padding: 8px 10px; border-radius: 6px; border: 1.5px solid #bdbdbd; font-size: 1rem; background: #fff; transition: border 0.2s; }
+.subject-card.enhanced select:focus { border: 1.5px solid #2196f3; outline: none; } 

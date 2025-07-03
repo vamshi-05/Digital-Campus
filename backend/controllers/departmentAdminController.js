@@ -879,7 +879,7 @@ const getSubjectsList = async (req, res) => {
   try {
     const departmentId = req.user.department;
     const subjects = await Subject.find({ department: departmentId })
-      .select('name code')
+      .select('name code semester academicYear faculty credits')
       .sort({ name: 1 });
 
     res.json(subjects);

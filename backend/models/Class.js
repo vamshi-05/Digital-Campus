@@ -18,9 +18,18 @@ const classSchema = new mongoose.Schema(
     currentStrength: { type: Number, default: 0 }, // current number of students
     subjects: [
       {
-        subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
-        faculty: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
-      }
+        subject: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Subject",
+          required: true,
+        },
+        faculty: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: false,
+          default: null,
+        },
+      },
     ],
     status: {
       type: String,
