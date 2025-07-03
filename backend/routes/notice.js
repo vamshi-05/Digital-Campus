@@ -13,6 +13,8 @@ const {
   markAsRead,
   getNoticeStats
 } = require('../controllers/noticeController');
+const noticeController = require('../controllers/noticeController');
+const upload = require('../middlewares/upload');
 
 // All routes require authentication
 router.use(auth);
@@ -43,5 +45,8 @@ router.put('/mark-read', markAsRead);
 
 // Get notice statistics
 router.get('/stats/overview', getNoticeStats);
+
+// Add notice (admin, departmentAdmin, classTeacher)
+router.post('/', auth, uploadConfigs.noticeAttachments, handleUploadError, createNotice);
 
 module.exports = router; 

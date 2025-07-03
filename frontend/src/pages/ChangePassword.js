@@ -7,7 +7,7 @@ import { handleError, showToast } from '../utils/toast';
 import api from '../api/axios';
 
 export default function ChangePassword() {
-  const { user, needsPasswordChange, setPasswordChanged } = useAuth();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -17,12 +17,6 @@ export default function ChangePassword() {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
 
-  // If user doesn't need password change and is not on first login, redirect to dashboard
-  useEffect(() => {
-    if (user && !needsPasswordChange) {
-      navigate('/dashboard');
-    }
-  }, [user, needsPasswordChange, navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -64,13 +58,15 @@ export default function ChangePassword() {
     
     setLoading(true);
     try {
-      await api.put('/users/change-password', {
+      await api.post('/auth/reset-password', {
         currentPassword: form.currentPassword,
-        newPassword: form.newPassword
+        newPassword: form.newPassword,
+        confirmPassword: form.confirmPassword,
+        id: user.id
       });
       
       showToast.success('Password changed successfully!');
-      setPasswordChanged(); // Update the user state
+      // Update the user state
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       
       // Redirect to dashboard after successful password change
@@ -102,18 +98,14 @@ export default function ChangePassword() {
                 <Card>
                   <Card.Body>
                     <h3 className="mb-4 text-center">
-                      {needsPasswordChange ? 'Change Your Password' : 'Change Password'}
+                        Change Your Password
                     </h3>
                     
-                    {needsPasswordChange ? (
+                   
                       <Alert variant="warning">
                         <strong>Welcome {user?.name}!</strong> Please change your password for security.
                       </Alert>
-                    ) : (
-                      <Alert variant="info">
-                        <strong>Password Change</strong> Update your password for better security.
-                      </Alert>
-                    )}
+                   
                     
                     <Form onSubmit={handleSubmit}>
                       <Form.Group className="mb-3" controlId="currentPassword">

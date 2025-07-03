@@ -503,7 +503,7 @@ const getSubjects = async (req, res) => {
       description: subject.description || '',
       credits: subject.credits || 3,
       semester: subject.semester || '1st Semester',
-      faculty: subject.faculty?.name || 'Unassigned',
+      faculty: subject.faculty,
       department: subject.department
     }));
 

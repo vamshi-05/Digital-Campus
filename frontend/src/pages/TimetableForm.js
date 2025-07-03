@@ -33,12 +33,16 @@ const TimetableForm = ({
     });
     return initial;
   });
+  const [classSubjects, setClassSubjects] = useState([]);
 
   useEffect(() => {
     if (user?.role !== "departmentAdmin") return;
     fetchSubjects();
     fetchFaculty();
     fetchTimetable();
+    if (classId) {
+      fetchClassSubjects();
+    }
   }, [user, departmentId, classId]);
 
   const fetchSubjects = async () => {
@@ -72,7 +76,14 @@ const TimetableForm = ({
           const found = res.data.schedule.find(
             (s) => s.day.toLowerCase() === day.toLowerCase()
           );
-          sch[day.toLowerCase()] = found ? found.periods : [];
+          // Normalize period.subject and period.faculty to be IDs
+          sch[day.toLowerCase()] = found
+            ? found.periods.map(period => ({
+                ...period,
+                subject: period.subject?._id || period.subject || "",
+                faculty: period.faculty?._id || period.faculty || "",
+              }))
+            : [];
         });
         setSchedule(sch);
       } else {
@@ -94,6 +105,15 @@ const TimetableForm = ({
         });
         return initial;
       });
+    }
+  };
+
+  const fetchClassSubjects = async () => {
+    try {
+      const res = await axios.get(`/classes/${classId}`);
+      setClassSubjects(res.data.subjects || []);
+    } catch (err) {
+      setClassSubjects([]);
     }
   };
 
@@ -124,6 +144,11 @@ const TimetableForm = ({
     setSchedule((sch) => {
       const arr = [...sch[day]];
       arr[idx] = { ...arr[idx], [field]: value };
+      // If subject changed, auto-fill faculty
+      if (field === 'subject') {
+        const found = classSubjects.find(s => (s.subject._id || s.subject) === value);
+        arr[idx].faculty = found ? (found.faculty._id || found.faculty) : '';
+      }
       return { ...sch, [day]: arr };
     });
   };
@@ -135,7 +160,7 @@ const TimetableForm = ({
     setSuccess("");
     try {
       if (timetableId) {
-        await axios.put(`/timetable/update/${timetableId}`, {
+        await axios.put(`/timetable/${timetableId}`, {
           schedule: Object.entries(schedule).map(([day, periods]) => ({
             day,
             periods,
@@ -143,7 +168,7 @@ const TimetableForm = ({
         });
         setSuccess("Timetable updated successfully!");
       } else {
-        await axios.post("/timetable/create", {
+        await axios.post("/timetable/add", {
           class: classId,
           department: departmentId,
           semester,
@@ -239,6 +264,7 @@ const TimetableForm = ({
                   }
                   required
                 />
+                {console.log(period)}
                 {period.type === "class" && (
                   <>
                     <select
@@ -260,25 +286,17 @@ const TimetableForm = ({
                         </option>
                       ))}
                     </select>
-                    <select
-                      value={period.faculty}
-                      onChange={(e) =>
-                        updatePeriod(
-                          day.toLowerCase(),
-                          idx,
-                          "faculty",
-                          e.target.value
-                        )
-                      }
-                      required
-                    >
-                      <option value="">Select Faculty</option>
-                      {faculty.map((f) => (
-                        <option key={f._id} value={f._id}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Faculty is auto-filled, show as read-only */}
+                    <input
+                      type="text"
+                      value={(() => {
+                        const found = classSubjects.find(s => (s.subject._id || s.subject) === period.subject);
+                        return found && found.faculty && found.faculty.name ? found.faculty.name : '';
+                      })()}
+                      readOnly
+                      placeholder="Faculty"
+                      style={{ width: 120, background: '#f0f0f0' }}
+                    />
                     <input
                       type="text"
                       placeholder="Room"
@@ -324,7 +342,13 @@ const TimetableForm = ({
         {timetableId && (
           <button
             type="button"
-            style={{ marginLeft: 12, background: "#dc3545", color: "#fff" }}
+            style={{
+              marginLeft: 12,
+              background: "#dc3545",
+              color: "#fff",
+              padding: 10,
+              margin: "auto",
+            }}
             onClick={handleDelete}
             disabled={loading}
           >

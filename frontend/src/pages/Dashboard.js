@@ -43,31 +43,37 @@ const Dashboard = () => {
     switch (user.role) {
       case 'admin':
         return [
-          { title: 'Add Department Admin', path: '/super-admin/add-department-admin', icon: '👥' },
+          // { title: 'Add Department Admin', path: '/super-admin/add-department-admin', icon: '👥' },
           { title: 'Manage Departments', path: '/super-admin/departments', icon: '🏢' },
           { title: 'View All Users', path: '/user-management', icon: '👤' },
-          { title: 'System Analytics', path: '/analytics', icon: '📊' }
+          { title: 'System Analytics', path: '/analytics', icon: '📊' },
+          { title: 'Notices', path: '/notice-board', icon: '📢' },
+          { title: 'Complaints', path: '/complaints', icon: '📝' },
         ];
       case 'departmentAdmin':
         return [
           { title: 'Manage Classes', path: '/department-admin/classes', icon: '📚' },
           { title: 'Manage Subjects', path: '/department-admin/subjects', icon: '📖' },
           { title: 'Manage Faculty', path: '/department-admin/faculty', icon: '👨‍🏫' },
-          { title: 'Manage Students', path: '/department-admin/students', icon: '👨‍🎓' }
+          { title: 'Manage Students', path: '/department-admin/students', icon: '👨‍🎓' },
+          { title: 'Notices', path: '/notice-board', icon: '📢' },
+          { title: 'Complaints', path: '/complaints', icon: '📝' },
         ];
       case 'faculty':
         return [
           { title: 'Take Attendance', path: '/attendance', icon: '✅' },
-          { title: 'Manage Grades', path: '/grades', icon: '📝' },
+          { title: 'Manage Grades', path: '/faculty/grades', icon: '📝' },
           { title: 'View Timetable', path: '/timetable', icon: '📅' },
-          { title: 'Send Notices', path: '/notice-board', icon: '📢' }
+          { title: 'View Notices', path: '/notice-board', icon: '📢' },
+          { title: 'Complaints', path: '/complaints', icon: '📝' },
         ];
       case 'student':
         return [
           { title: 'View Attendance', path: '/attendance', icon: '✅' },
           { title: 'View Grades', path: '/grades', icon: '📝' },
           { title: 'View Timetable', path: '/timetable', icon: '📅' },
-          { title: 'Submit Complaint', path: '/complaints-center', icon: '📝' }
+          { title: 'View Notices', path: '/notice-board', icon: '📢' },
+          { title: 'Submit Complaint', path: '/complaints', icon: '📝' },
         ];
       default:
         return [];

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './styles/app.css';
 import './styles/index.css';
 import './styles/components.css';
@@ -28,11 +28,12 @@ import DepartmentClasses from './pages/DepartmentClasses';
 import DepartmentFaculty from './pages/DepartmentFaculty';
 import DepartmentSubjects from './pages/DepartmentSubjects';
 import DepartmentStudents from './pages/DepartmentStudents';
+import DepartmentAdminGrades from './pages/DepartmentAdminGrades'
+import FacultyGrades from './pages/FacultyGrades';
 import Grades from './pages/Grades';
 
 // Enhanced pages
 import NoticeBoard from './pages/NoticeBoard';
-import ComplaintsCenter from './pages/ComplaintsCenter';
 import ChatInterface from './pages/ChatInterface';
 
 // Page placeholders
@@ -90,6 +91,7 @@ function FirstLoginRedirect({ children }) {
 function Navigation({ user, logout }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   
   const getNavbarClass = () => {
     if (!user) return 'navbar';
@@ -107,12 +109,25 @@ function Navigation({ user, logout }) {
 
   const isActive = (path) => location.pathname === path;
 
+  // Role-based dashboard navigation
+  const handleLogoClick = () => {
+    if (!user) {
+      navigate('/');
+    }
+    else{
+      navigate('/dashboard');
+
+    }
+    
+    setIsMenuOpen(false);
+  };
+
   return (
     <nav className={getNavbarClass()}>
       <div className="navbar-container">
-        <Link to="#" className="navbar-brand">
+        <span className="navbar-brand" style={{ cursor: 'pointer' }} onClick={handleLogoClick}>
           Digital Campus
-        </Link>
+        </span>
         
         <button 
           className="navbar-toggle"
@@ -286,15 +301,6 @@ function Navigation({ user, logout }) {
                         </li>
                         <li>
                           <Link 
-                            to="/complaints-center" 
-                            className={`nav-link${isActive('/complaints-center') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Complaints Center
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
                             to="/timetable" 
                             className={`nav-link${isActive('/timetable') ? ' active' : ''}`}
                             onClick={() => setIsMenuOpen(false)}
@@ -418,7 +424,7 @@ function App() {
           <div className="main-container">
             <AnimatePresence mode="wait">
               <Routes>
-                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+                <Route path="/" element={<PageWrapper><Login /></PageWrapper>} />
                 <Route path="/login" element={<PageWrapper><Login /></PageWrapper>} />
                 <Route path="/register" element={<ProtectedRoute roles={['admin']}><PageWrapper><Register /></PageWrapper></ProtectedRoute>} />
                 <Route path="/change-password" element={<ProtectedRoute><PageWrapper><ChangePassword /></PageWrapper></ProtectedRoute>} />
@@ -498,13 +504,6 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
-                <Route path="/complaints-center" element={
-                  <ProtectedRoute>
-                    <FirstLoginRedirect>
-                      <PageWrapper><ComplaintsCenter /></PageWrapper>
-                    </FirstLoginRedirect>
-                  </ProtectedRoute>
-                } />
                 <Route path="/timetable" element={
                   <ProtectedRoute>
                     <FirstLoginRedirect>
@@ -542,6 +541,12 @@ function App() {
                 <Route path="/department-admin/faculty" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentFaculty /></ProtectedRoute>} />
                 <Route path="/department-admin/subjects" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentSubjects /></ProtectedRoute>} />
                 <Route path="/department-admin/students" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentStudents /></ProtectedRoute>} />
+                <Route path="/department-admin/grades" element={<ProtectedRoute allowedRoles={['departmentAdmin']}><DepartmentAdminGrades /></ProtectedRoute>} />
+                
+                { /* Faculty Routes*/}
+                <Route path="/faculty/grades" element={<ProtectedRoute allowedRoles={['faculty']}><FacultyGrades /></ProtectedRoute>} />
+
+
               </Routes>
             </AnimatePresence>
           </div>

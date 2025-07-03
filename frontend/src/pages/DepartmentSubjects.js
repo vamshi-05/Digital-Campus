@@ -218,6 +218,7 @@ const DepartmentSubjects = () => {
             </tr>
           </thead>
           <tbody>
+            {console.log(filteredSubjects)}
             {filteredSubjects.map(subject => (
               <tr key={subject._id}>
                 <td>
@@ -227,7 +228,7 @@ const DepartmentSubjects = () => {
                   </div>
                 </td>
                 <td>{subject.code}</td>
-                <td>{subject.faculty}</td>
+                <td>{subject.faculty.map(faculty => faculty.name).join(', ')}</td>
                 <td>{subject.semester}</td>
                 <td>{subject.credits} Credits</td>
                 <td>

@@ -4,80 +4,42 @@ const Department = require('../models/Department');
 const Class = require('../models/Class');
 const { getFileInfo, deleteFile } = require('../middlewares/upload');
 const { sendNoticeNotifications } = require('../services/emailService');
+const path = require('path');
 
 // Create notice
 exports.createNotice = async (req, res) => {
   try {
-    if (!['admin', 'departmentAdmin', 'faculty'].includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+    const user = req.user;
+    const { title, content, departments, roles, targetClasses } = req.body;
+    let files = [];
+    if (req.files) {
+      files = req.files.map(f => '/uploads/' + path.basename(f.path));
+    } else if (req.file) {
+      files = ['/uploads/' + path.basename(req.file.path)];
     }
-
-    const {
+    let noticeData = {
       title,
       content,
-      category,
-      priority,
-      targetAudience,
-      targetDepartments,
-      targetClasses,
-      targetRoles,
-      scheduledFor,
-      expiresAt,
-      isPublished
-    } = req.body;
-
-    // Handle file attachments
-    const attachments = [];
-    if (req.files && req.files.length > 0) {
-      req.files.forEach(file => {
-        const fileInfo = getFileInfo(file);
-        if (fileInfo) {
-          attachments.push({
-            fileName: fileInfo.originalName,
-            fileUrl: fileInfo.url,
-            fileSize: fileInfo.size,
-            fileType: fileInfo.mimetype
-          });
-        }
-      });
+      createdBy: user._id,
+      files,
+    };
+    console.log(user);
+    if (user.role === 'admin') {
+      noticeData.departments = departments && departments.length ? departments : [];
+      noticeData.roles = roles && roles.length ? roles : [];
+    } else if (user.role === 'departmentAdmin') {
+      noticeData.departments = [user.department];
+      noticeData.roles = roles && roles.length ? roles : [];
+    } else if (user.role === 'faculty' && user.isClassTeacher) {
+      noticeData.targetClasses = targetClasses && targetClasses.length ? targetClasses : [user.class];
+      noticeData.roles = ['student'];
+    } else {
+      return res.status(403).json({ message: 'Not authorized to create notice' });
     }
-
-    const notice = new Notice({
-      title,
-      content,
-      category,
-      priority,
-      department: req.user.department,
-      createdBy: req.user._id,
-      targetAudience,
-      targetDepartments: targetDepartments ? JSON.parse(targetDepartments) : [],
-      targetClasses: targetClasses ? JSON.parse(targetClasses) : [],
-      targetRoles: targetRoles ? JSON.parse(targetRoles) : [],
-      scheduledFor: scheduledFor || null,
-      expiresAt: expiresAt || null,
-      isPublished: isPublished === 'true',
-      publishedAt: isPublished ? Date.now() : null,
-      attachments
-    });
-
-    await notice.save();
-
-    // Send email notifications if notice is published
-    if (notice.isPublished) {
-      try {
-        await sendNoticeNotifications(notice);
-      } catch (emailError) {
-        console.error('Failed to send email notifications:', emailError);
-      }
-    }
-
-    res.status(201).json({
-      message: 'Notice created successfully',
-      notice
-    });
+    const notice = await Notice.create(noticeData);
+    res.status(201).json(notice);
   } catch (err) {
-    console.error('Create notice error:', err);
-    res.status(500).json({ message: 'Failed to create notice' });
+    res.status(500).json({ message: err.message });
   }
 };
 

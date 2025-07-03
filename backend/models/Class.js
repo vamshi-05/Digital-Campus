@@ -16,6 +16,12 @@ const classSchema = new mongoose.Schema(
     semester: { type: String, required: true }, // e.g., "1st Semester", "2nd Semester"
     capacity: { type: Number, default: 60 }, // maximum students allowed
     currentStrength: { type: Number, default: 0 }, // current number of students
+    subjects: [
+      {
+        subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
+        faculty: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+      }
+    ],
     status: {
       type: String,
       enum: ["active", "inactive"],

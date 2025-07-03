@@ -82,7 +82,10 @@ const noticeSchema = new mongoose.Schema({
   emailSent: { 
     type: Boolean, 
     default: false 
-  }
+  },
+  departments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Department' }],
+  roles: [{ type: String, enum: ['faculty', 'student', 'departmentAdmin', 'admin'] }],
+  files: [{ type: String }],
 }, { timestamps: true });
 
 // Index for efficient querying

@@ -32,7 +32,7 @@ const timetableSchema = new mongoose.Schema(
           {
             // periodNumber: { type: Number, required: true }, // 1, 2, 3, etc.
             subject: { type: mongoose.Schema.Types.ObjectId, ref: "Subject" },
-            teacher: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // faculty teaching this period
+            faculty: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // faculty teaching this period
             startTime: { type: String, required: true }, // e.g., "09:00"
             endTime: { type: String, required: true }, // e.g., "10:00"
             room: { type: String }, // classroom number

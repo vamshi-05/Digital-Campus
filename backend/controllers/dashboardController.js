@@ -208,14 +208,14 @@ const getAdminActivities = async () => {
 
   // Get recent complaints
   const recentComplaints = await Complaint.find()
-    .populate('complainant', 'name')
+    .populate('createdBy', 'name')
     .sort({ createdAt: -1 })
     .limit(5);
   
   recentComplaints.forEach(complaint => {
     activities.push({
       type: 'complaint',
-      description: `${complaint.complainant.name} submitted a complaint: ${complaint.title}`,
+      description: `${complaint.createdBy.name} submitted a complaint: ${complaint.title}`,
       createdAt: complaint.createdAt
     });
   });
@@ -398,7 +398,7 @@ const calculateStudentAttendance = async (studentId) => {
 
   let presentCount = 0;
   attendanceRecords.forEach(record => {
-    const studentRecord = record.records.find(r => r.student.toString() === studentId);
+    const studentRecord = record.records?.find(r => r.student.toString() === studentId);
     if (studentRecord && studentRecord.status === 'present') {
       presentCount++;
     }

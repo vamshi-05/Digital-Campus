@@ -27,6 +27,7 @@ exports.addDepartment = async (req, res) => {
 
 exports.getAllDepartments = async (req, res) => {
   try {
+    console.log(req.user);
     const departments = await Department.find()
       .populate('admins', 'name email role')
       .populate({
@@ -37,6 +38,7 @@ exports.getAllDepartments = async (req, res) => {
           select: 'name email'
         }
       });
+    console.log(departments);
     res.json(departments);
   } catch (err) {
     res.status(500).json({ message: err.message });

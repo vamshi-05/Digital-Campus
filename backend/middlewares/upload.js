@@ -88,10 +88,10 @@ const uploadConfigs = {
   fields: (fields) => upload.fields(fields),
   
   // Notice attachments
-  noticeAttachments: upload.array('notice_attachment', 5),
+  noticeAttachments: upload.array('files', 5),
   
   // Complaint attachments
-  complaintAttachments: upload.array('complaint_attachment', 3),
+  complaintAttachments: upload.array('images', 3),
   
   // Chat files
   chatFiles: upload.single('chat_file'),
@@ -105,6 +105,7 @@ const uploadConfigs = {
 
 // Error handling middleware
 const handleUploadError = (error, req, res, next) => {
+  console.log(error);
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({

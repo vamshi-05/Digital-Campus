@@ -3,6 +3,7 @@ const Department = require('../models/Department');
 const Class = require('../models/Class');
 const Subject = require('../models/Subject');
 const bcrypt = require('bcrypt');
+const Timetable = require('../models/Timetable');
 
 exports.getProfile = async (req, res) => {
   try {
@@ -18,11 +19,22 @@ exports.getProfile = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    // if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
     const users = await User.find()
       .select('-password')
       .populate('department', 'name code')
       .populate('class', 'name fullName');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.getAllAdmins = async (req, res) => {
+  try {
+    if (req.user.role !== 'departmentAdmin') return res.status(403).json({ message: 'Access denied' });
+    const users = await User.find({ role: 'admin' })
+      .select('-password')
+     
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -394,6 +406,27 @@ exports.getUsersByDepartment = async (req, res) => {
       .populate('class', 'name fullName');
     
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getFacultyClasses = async (req, res) => {
+  try {
+    if (req.user.role !== 'faculty') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    // Find all timetables where this faculty is assigned
+    const timetables = await Timetable.find({ 'schedule.periods.faculty': req.user._id }).populate('class');
+    // Extract unique classes
+    const classMap = {};
+    timetables.forEach(tt => {
+      if (tt.class && tt.class._id) {
+        classMap[tt.class._id] = tt.class;
+      }
+    });
+    const classes = Object.values(classMap);
+    res.json(classes);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

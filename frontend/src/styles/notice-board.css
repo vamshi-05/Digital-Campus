@@ -250,6 +250,7 @@
 
 /* Modal Styles */
 .modal-overlay {
+  
   position: fixed;
   top: 0;
   left: 0;
@@ -336,6 +337,14 @@
 .notice-attachments h4 {
   margin: 0 0 15px 0;
   color: #333;
+}
+.notice-file-image{
+  height: 300px;
+  width: 300px;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
 }
 
 .attachments-list {

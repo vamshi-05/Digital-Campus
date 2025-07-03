@@ -277,7 +277,7 @@ const DepartmentClasses = () => {
                         className="timetable-btn"
                         onClick={() => { setTimetableClass(cls); setShowTimetableModal(true); }}
                       >
-                        Create Timetable
+                        {cls.timetable ? "Edit Timetable" : "Create Timetable"}
                       </button>
                     )}
                   </div>

@@ -10,7 +10,7 @@ exports.addClass = async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Only department admins can add classes.' });
     }
     
-    const { name, departmentId, classTeacherId, academicYear, semester, capacity } = req.body;
+    const { name, departmentId, classTeacherId, academicYear, semester, capacity, subjects } = req.body;
     console.log(departmentId);
     console.log(req.user);
     // For department admins, ensure they can only add classes to their department
@@ -47,7 +47,8 @@ exports.addClass = async (req, res) => {
       department: targetDepartmentId,
       academicYear,
       semester,
-      capacity: capacity || 60
+      capacity: capacity || 60,
+      subjects: Array.isArray(subjects) ? subjects : []
     }
 
     if(classTeacherId && classTeacherId !== "-"){
@@ -71,7 +72,9 @@ exports.addClass = async (req, res) => {
     const populatedClass = await Class.findById(newClass._id)
       .populate('department', 'name code')
       .populate('classTeacher', 'name email')
-      .populate('students', 'name email rollNumber');
+      .populate('students', 'name email rollNumber')
+      .populate({ path: 'subjects.subject', select: 'name code' })
+      .populate({ path: 'subjects.faculty', select: 'name email' });
     
     res.status(201).json(populatedClass);
   } catch (err) {
@@ -139,7 +142,7 @@ exports.updateClass = async (req, res) => {
     }
     
     const { id } = req.params;
-    const { name, classTeacherId, capacity, status,semester,academicYear } = req.body;
+    const { name, classTeacherId, capacity, status,semester,academicYear, subjects } = req.body;
     
     const classData = await Class.findById(id);
     if (!classData) {
@@ -158,12 +161,19 @@ exports.updateClass = async (req, res) => {
     if (status) classData.status = status;
     if (semester) classData.semester = semester;
     if (academicYear) classData.academicYear = academicYear;
+    if (Array.isArray(subjects)) classData.subjects = subjects;
     await classData.save();
     
     const updatedClass = await Class.findById(id)
       .populate('department', 'name code')
       .populate('classTeacher', 'name email')
-      .populate('students', 'name email rollNumber');
+      .populate('students', 'name email rollNumber')
+      .populate({ path: 'subjects.subject', select: 'name code' })
+      .populate({ path: 'subjects.faculty', select: 'name email' });
+
+    if(classTeacherId && classTeacherId !== "-"){
+      await User.findByIdAndUpdate(classTeacherId, { isClassTeacher: true });
+    }
     
     res.json(updatedClass);
   } catch (err) {
@@ -329,6 +339,17 @@ exports.removeStudentFromClass = async (req, res) => {
     await User.findByIdAndUpdate(studentId, { $unset: { class: 1 } });
     
     res.json({ message: 'Student removed from class successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getClassStudents = async (req, res) => {
+  try {
+    const classId = req.params.id;
+    const classObj = await Class.findById(classId).populate('students', 'name rollNumber email status');
+    if (!classObj) return res.status(404).json({ message: 'Class not found' });
+    res.json(classObj.students);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

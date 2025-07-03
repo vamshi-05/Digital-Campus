@@ -44,7 +44,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { user },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1h" }
     );
     res.json({
       token,
@@ -71,6 +71,7 @@ exports.getMe = async (req, res) => {
     }
     res.json({
       id: user._id,
+      _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -91,5 +92,42 @@ exports.getMe = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { id, currentPassword, newPassword, confirmPassword } = req.body;
+
+    const user = await User.findOne({ 
+      _id: id, 
+    });
+
+    if(!user){
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if(!isMatch){
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    if(newPassword !== confirmPassword){
+      return res.status(400).json({ message: 'New password and confirm password do not match' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+
+    res.json({ 
+      message: 'Password reset successfully', 
+      newPassword 
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Error resetting password' });
   }
 };

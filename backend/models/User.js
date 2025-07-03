@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema(
     phone: { type: String },
     qualification: { type: String }, // for faculty
     experience: { type: Number, default: 0 }, // for faculty
-    designation: { type: String, default: 'Faculty' }, // for faculty
+    designation: { type: String }, // for faculty
     isClassTeacher: { type: Boolean, default: false }, // indicates if faculty is a class teacher
     
     // Subjects taught by faculty

@@ -36,9 +36,19 @@ export default function Classes() {
     status: 'active'
   });
 
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [allFaculty, setAllFaculty] = useState([]);
+  const [subjectFacultyAssignments, setSubjectFacultyAssignments] = useState([]); // [{subject, faculty}]
+
   useEffect(() => {
     fetchData();
   }, [filters]);
+
+  useEffect(() => {
+    if (formData.departmentId && formData.semester) {
+      fetchSubjectsAndFaculty();
+    }
+  }, [formData.departmentId, formData.semester]);
 
   const fetchData = async () => {
     try {
@@ -66,10 +76,43 @@ export default function Classes() {
     }
   };
 
+  const fetchSubjectsAndFaculty = async () => {
+    try {
+      const [subjectsRes, facultyRes] = await Promise.all([
+        api.get(`/department-admin/subjects-list?departmentId=${formData.departmentId}&semester=${formData.semester}`),
+        api.get(`/department-admin/faculty?departmentId=${formData.departmentId}`)
+      ]);
+      setAllSubjects(subjectsRes.data);
+      setAllFaculty(facultyRes.data);
+      // If editing, prefill assignments
+      if (selectedClass && selectedClass.subjects) {
+        setSubjectFacultyAssignments(selectedClass.subjects.map(s => ({
+          subject: s.subject._id || s.subject,
+          faculty: s.faculty._id || s.faculty
+        })));
+      } else {
+        setSubjectFacultyAssignments(subjectsRes.data.map(s => ({ subject: s._id, faculty: '' })));
+      }
+    } catch (err) {
+      setAllSubjects([]);
+      setAllFaculty([]);
+      setSubjectFacultyAssignments([]);
+    }
+  };
+
+  const handleAssignmentChange = (subjectId, facultyId) => {
+    setSubjectFacultyAssignments(prev => prev.map(a =>
+      a.subject === subjectId ? { ...a, faculty: facultyId } : a
+    ));
+  };
+
   const handleEditClass = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/classes/${selectedClass._id}`, formData);
+      await api.put(`/classes/${selectedClass._id}`, {
+        ...formData,
+        subjects: subjectFacultyAssignments.filter(a => a.faculty)
+      });
       setShowEditModal(false);
       setSelectedClass(null);
       setFormData({
@@ -389,6 +432,26 @@ export default function Classes() {
                   </select>
                 </div>
               </div>
+              
+              {allSubjects.length > 0 && (
+                <div className="form-group">
+                  <label>Assign Faculty to Subjects</label>
+                  {allSubjects.map(subject => (
+                    <div key={subject._id} className="subject-assignment-row">
+                      <span>{subject.name}</span>
+                      <select
+                        value={subjectFacultyAssignments.find(a => a.subject === subject._id)?.faculty || ''}
+                        onChange={e => handleAssignmentChange(subject._id, e.target.value)}
+                      >
+                        <option value="">Select Faculty</option>
+                        {allFaculty.map(fac => (
+                          <option key={fac._id} value={fac._id}>{fac.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
               
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowEditModal(false)} className="cancel-btn">

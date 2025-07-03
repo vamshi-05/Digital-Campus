@@ -157,16 +157,84 @@ const Grades = () => {
     return 'F';
   };
 
-  if (user.role !== 'faculty') {
+  // if (user.role === 'student') {
+    const [studentGrades, setStudentGrades] = useState([]);
+    // const [loading, setLoading] = useState(true);
+    // const [error, setError] = useState('');
+    const fetchStudentGrades = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`/grade/student/${user.id}`);
+        setStudentGrades(res.data);
+      } catch (err) {
+        setStudentGrades([]);
+        setError('Failed to fetch grades');
+      } finally {
+        setLoading(false);
+      }
+    };
+    useEffect(() => {
+      if (user.role === 'student') {
+        fetchStudentGrades();
+      }
+    }, [user]);
     return (
       <div className="grades-container">
-        <div className="error-message">
-          <h2>Access Denied</h2>
-          <p>Only faculty members can access the grades management system.</p>
+        <div className="grades-header">
+          <h1>My Grades</h1>
+        </div>
+        <div className="grades-table-section">
+          <h3>Grades List</h3>
+          {loading ? (
+            <div className="loading">Loading grades...</div>
+          ) : (
+            <div className="table-container">
+              <table className="grades-table">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Type</th>
+                    <th>Grade</th>
+                    <th>Percentage</th>
+                    <th>Letter</th>
+                    <th>Semester</th>
+                    <th>Year</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentGrades.map(grade => (
+                    <tr key={grade._id}>
+                      <td>{grade.subject?.name}</td>
+                      <td>{grade.gradeType}</td>
+                      <td>{grade.gradeValue}/{grade.maxMarks}</td>
+                      <td>{grade.percentage?.toFixed(1)}%</td>
+                      <td className={`grade-letter grade-${getGradeLetter(grade.percentage).toLowerCase()}`}>{getGradeLetter(grade.percentage)}</td>
+                      <td>{grade.semester}</td>
+                      <td>{grade.academicYear}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {studentGrades.length === 0 && (
+                <div className="no-data">No grades found.</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
-  }
+  
+
+  // if (user.role !== 'faculty') {
+  //   return (
+  //     <div className="grades-container">
+  //       <div className="error-message">
+  //         <h2>Access Denied</h2>
+  //         <p>Only faculty members can access the grades management system.</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="grades-container">

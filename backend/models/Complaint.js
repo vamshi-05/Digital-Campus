@@ -1,11 +1,17 @@
 const mongoose = require('mongoose');
 
+const statusHistorySchema = new mongoose.Schema({
+  status: { type: String, enum: ['open', 'in progress', 'resolved', 'closed'], required: true },
+  updatedBy: { type: String, enum: ['admin', 'departmentAdmin', 'faculty', 'classTeacher', 'student'], required: true },
+  updatedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const complaintSchema = new mongoose.Schema({
   trackingNumber: { 
     type: String, 
     unique: true 
   },
-  complainant: { 
+  createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
@@ -42,9 +48,10 @@ const complaintSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['Open', 'In Progress', 'Under Review', 'Resolved', 'Closed'], 
-    default: 'Open' 
+    enum: ['open', 'in progress', 'resolved', 'closed'], 
+    default: 'open' 
   },
+  statusHistory: [statusHistorySchema],
   assignedTo: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User' 
@@ -88,7 +95,10 @@ const complaintSchema = new mongoose.Schema({
   },
   satisfactionComment: { 
     type: String 
-  }
+  },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  recipients: [{ type: String, enum: ['admin', 'departmentAdmin', 'faculty', 'classTeacher', 'student'], required: true }],
+  images: [{ type: String }],
 }, { timestamps: true });
 
 // Generate tracking number before saving
@@ -103,7 +113,7 @@ complaintSchema.pre('save', function(next) {
 
 // Index for efficient querying
 complaintSchema.index({ trackingNumber: 1 });
-complaintSchema.index({ complainant: 1, createdAt: -1 });
+complaintSchema.index({ createdBy: 1, createdAt: -1 });
 complaintSchema.index({ status: 1, priority: 1 });
 complaintSchema.index({ assignedTo: 1, status: 1 });
 

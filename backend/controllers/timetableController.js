@@ -37,12 +37,10 @@ exports.addTimetable = async (req, res) => {
       academicYear: academicYear || classData.academicYear,
       semester: semester || classData.semester
     });
-    console.log("1");
     await timetable.save();
-    console.log("2");
     // Update class with timetable reference
     await Class.findByIdAndUpdate(classId, { timetable: timetable._id });
-    console.log("3");
+  
     const populatedTimetable = await Timetable.findById(timetable._id)
       .populate('class', 'name fullName')
       .populate('department', 'name code')
@@ -51,10 +49,10 @@ exports.addTimetable = async (req, res) => {
         select: 'name code'
       })
       .populate({
-        path: 'schedule.periods.teacher',
+        path: 'schedule.periods.faculty',
         select: 'name email'
       });
-    console.log("4");
+ 
     res.status(201).json(populatedTimetable);
   } catch (err) {
     console.log(err);
@@ -74,7 +72,7 @@ exports.getTimetable = async (req, res) => {
         select: 'name code'
       })
       .populate({
-        path: 'schedule.periods.teacher',
+        path: 'schedule.periods.faculty',
         select: 'name email'
       });
     
@@ -97,11 +95,23 @@ exports.updateTimetable = async (req, res) => {
     const { id } = req.params;
     const { schedule, status } = req.body;
     
+    // Sanitize schedule: convert empty string subject/faculty to null
+    if (Array.isArray(schedule)) {
+      schedule.forEach(dayObj => {
+        if (Array.isArray(dayObj.periods)) {
+          dayObj.periods.forEach(period => {
+            if (period.subject === "") period.subject = null;
+            if (period.faculty === "") period.faculty = null;
+          });
+        }
+      });
+    }
+    
     const timetable = await Timetable.findById(id);
     if (!timetable) {
       return res.status(404).json({ message: 'Timetable not found' });
     }
-    
+    console.log(schedule);
     const updatedTimetable = await Timetable.findByIdAndUpdate(
       id,
       { schedule, status },
@@ -114,12 +124,13 @@ exports.updateTimetable = async (req, res) => {
       select: 'name code'
     })
     .populate({
-      path: 'schedule.periods.teacher',
+      path: 'schedule.periods.faculty',
       select: 'name email'
     });
     
     res.json(updatedTimetable);
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -164,7 +175,7 @@ exports.getTimetablesByDepartment = async (req, res) => {
         select: 'name code'
       })
       .populate({
-        path: 'schedule.periods.teacher',
+        path: 'schedule.periods.faculty',
         select: 'name email'
       });
     
@@ -178,14 +189,14 @@ exports.getTeacherTimetable = async (req, res) => {
   try {
     const { teacherId } = req.params;
     
-    // Verify teacher exists
-    const teacher = await User.findById(teacherId);
-    if (!teacher || teacher.role !== 'faculty') {
+    // Verify faculty exists
+    const faculty = await User.findById(teacherId);
+    if (!faculty || faculty.role !== 'faculty') {
       return res.status(404).json({ message: 'Teacher not found' });
     }
     
     const timetables = await Timetable.find({
-      'schedule.periods.teacher': teacherId
+      'schedule.periods.faculty': teacherId
     })
     .populate('class', 'name fullName')
     .populate('department', 'name code')
@@ -194,7 +205,7 @@ exports.getTeacherTimetable = async (req, res) => {
       select: 'name code'
     })
     .populate({
-      path: 'schedule.periods.teacher',
+      path: 'schedule.periods.faculty',
       select: 'name email'
     });
     
@@ -226,7 +237,7 @@ exports.getStudentTimetable = async (req, res) => {
         select: 'name code'
       })
       .populate({
-        path: 'schedule.periods.teacher',
+        path: 'schedule.periods.faculty',
         select: 'name email'
       });
     
