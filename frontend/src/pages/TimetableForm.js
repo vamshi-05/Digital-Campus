@@ -110,7 +110,8 @@ const TimetableForm = ({
 
   const fetchClassSubjects = async () => {
     try {
-      const res = await axios.get(`/classes/${classId}`);
+      const res = await axios.get(`/class/${classId}`);
+      console.log(res.data);
       setClassSubjects(res.data.subjects || []);
     } catch (err) {
       setClassSubjects([]);
@@ -145,6 +146,7 @@ const TimetableForm = ({
       const arr = [...sch[day]];
       arr[idx] = { ...arr[idx], [field]: value };
       // If subject changed, auto-fill faculty
+      console.log(classSubjects);
       if (field === 'subject') {
         const found = classSubjects.find(s => (s.subject._id || s.subject) === value);
         arr[idx].faculty = found ? (found.faculty._id || found.faculty) : '';
@@ -287,16 +289,16 @@ const TimetableForm = ({
                       ))}
                     </select>
                     {/* Faculty is auto-filled, show as read-only */}
-                    <input
+                    { period.subject && period.subject !== "" && <input
                       type="text"
                       value={(() => {
                         const found = classSubjects.find(s => (s.subject._id || s.subject) === period.subject);
-                        return found && found.faculty && found.faculty.name ? found.faculty.name : '';
+                        return faculty?.find(f => f._id === found?.faculty)?.name || '';
                       })()}
                       readOnly
                       placeholder="Faculty"
                       style={{ width: 120, background: '#f0f0f0' }}
-                    />
+                    />}
                     <input
                       type="text"
                       placeholder="Room"

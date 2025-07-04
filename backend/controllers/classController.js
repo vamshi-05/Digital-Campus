@@ -11,8 +11,7 @@ exports.addClass = async (req, res) => {
     }
     
     const { name, departmentId, classTeacherId, academicYear, semester, capacity, subjects } = req.body;
-    console.log(departmentId);
-    console.log(req.user);
+  
     // For department admins, ensure they can only add classes to their department
     let targetDepartmentId = req.user.department;
     if (departmentId && departmentId !== req.user.department) {
@@ -38,6 +37,7 @@ exports.addClass = async (req, res) => {
       });
     }
     
+    const newSubjects = subjects.filter(subject => subject.faculty !== '' && subject.faculty !== "-" && subject.faculty !== null);
     // Create full name (e.g., "CSE-A")
     const fullName = `${department.name}-${name}`;
     
@@ -48,7 +48,7 @@ exports.addClass = async (req, res) => {
       academicYear,
       semester,
       capacity: capacity || 60,
-      subjects: Array.isArray(subjects) ? subjects : []
+      subjects: Array.isArray(newSubjects) ? newSubjects : []
     }
 
     if(classTeacherId && classTeacherId !== "-"){
@@ -162,7 +162,9 @@ exports.updateClass = async (req, res) => {
     if (status) classData.status = status;
     if (semester) classData.semester = semester;
     if (academicYear) classData.academicYear = academicYear;
-    if (Array.isArray(subjects)) classData.subjects = subjects;
+    const newSubjects = subjects.filter(subject => subject.faculty !== '' && subject.faculty !== "-" && subject.faculty !== null);
+    console.log(newSubjects);
+    if (Array.isArray(newSubjects)) classData.subjects = newSubjects;
     await classData.save();
     
     const updatedClass = await Class.findById(id)
@@ -349,7 +351,7 @@ exports.removeStudentFromClass = async (req, res) => {
 exports.getClassStudents = async (req, res) => {
   try {
     const classId = req.params.id;
-    const classObj = await Class.findById(classId).populate('students', 'name rollNumber email status');
+    const classObj = await Class.findById(classId).populate('students', 'name rollNumber email status class');
     if (!classObj) return res.status(404).json({ message: 'Class not found' });
     res.json(classObj.students);
   } catch (err) {

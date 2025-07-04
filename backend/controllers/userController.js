@@ -417,12 +417,12 @@ exports.getFacultyClasses = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     // Find all timetables where this faculty is assigned
-    const timetables = await Timetable.find({ 'schedule.periods.faculty': req.user._id }).populate('class');
+    const teachingClasses = await Class.find({ 'subjects.faculty': req.user._id });
     // Extract unique classes
     const classMap = {};
-    timetables.forEach(tt => {
-      if (tt.class && tt.class._id) {
-        classMap[tt.class._id] = tt.class;
+    teachingClasses.forEach(cls => {
+      if (cls._id) {
+        classMap[cls._id] = cls;
       }
     });
     const classes = Object.values(classMap);

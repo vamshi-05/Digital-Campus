@@ -11,6 +11,7 @@ const DepartmentClasses = () => {
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [faculty, setFaculty] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterYear, setFilterYear] = useState('');
@@ -60,14 +61,16 @@ const DepartmentClasses = () => {
     try {
       setLoading(true);
       // For department admins, fetch only their department's data
-      const [classesRes, facultyRes] = await Promise.all([
+      const [classesRes, facultyRes, subjectsRes] = await Promise.all([
         api.get(`/class/all?departmentId=${user.department}`),
-        api.get(`/user/faculty?departmentId=${user.department}`)
+        api.get(`/user/faculty?departmentId=${user.department}`),
+        api.get(`/department-admin/subjects-list?departmentId=${user.department}`)
       ]);
-     
+      console.log(subjectsRes.data);
       setClasses(classesRes.data);
       setFaculty(facultyRes.data);
-    } catch (error) {
+      setSubjects(subjectsRes.data);
+      } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
@@ -76,14 +79,10 @@ const DepartmentClasses = () => {
 
   const fetchSubjectsAndFaculty = async () => {
     try {
-      const [subjectsRes, facultyRes] = await Promise.all([
-        api.get(`/department-admin/subjects-list?departmentId=${user.department}&semester=${formData.semester}&academicYear=${formData.academicYear}`),
-        api.get(`/user/faculty?departmentId=${user.department}`)
-      ]);
-      console.log(subjectsRes.data);
-      setAllSubjects(subjectsRes.data);
-      setAllFaculty(facultyRes.data);
-      setSubjectFacultyAssignments(subjectsRes.data.map(s => ({ subject: s._id, faculty: '' })));
+      
+      setAllSubjects(subjects);
+      setAllFaculty(faculty);
+      setSubjectFacultyAssignments(subjects.map(s => ({ subject: s._id, faculty: '' })));
     } catch (err) {
       setAllSubjects([]);
       setAllFaculty([]);
@@ -146,13 +145,9 @@ const DepartmentClasses = () => {
     );
   }
   else{
-    const [subjectsRes, facultyRes] = await Promise.all([
-      api.get(`/department-admin/subjects-list?departmentId=${user.department}&semester=${formData.semester}&academicYear=${formData.academicYear}`),
-      api.get(`/user/faculty?departmentId=${user.department}`)
-    ]);
-    setAllFaculty(facultyRes.data);
-    setAllSubjects(subjectsRes.data);
-    setSubjectFacultyAssignments(subjectsRes.data.filter(s => s.semester === classData.semester).map(s => ({ subject: s._id, faculty: '' })));
+    setAllFaculty(faculty);
+    setAllSubjects(subjects);
+    setSubjectFacultyAssignments(subjects.filter(s => s.semester === classData.semester).map(s => ({ subject: s._id, faculty: '' })));
   }
     setShowEditModal(true);
   };
@@ -720,10 +715,11 @@ const DepartmentClasses = () => {
                     </tr>
                   </thead>
                   <tbody>
+                    {console.log(subjects)}
                     {facultyModalClass.subjects.map((s, idx) => (
                       <tr key={idx}>
-                        <td>{s.subject?.name || s.subject?.code || 'Unknown'}</td>
-                        <td>{s.faculty?.name || 'Not Assigned'}</td>
+                        <td>{subjects.find(sub => sub._id === s.subject)?.name || 'Unknown'}</td>
+                        <td>{faculty.find(fac => fac._id === s.faculty)?.name || 'Not Assigned'}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -13,7 +13,7 @@ exports.addTimetable = async (req, res) => {
     const { class: classId, schedule, academicYear, semester } = req.body;
     console.log(req.body);
     // Verify class exists
-
+    console.log(schedule[0].periods);
     const classData = await Class.findById(classId);
     if (!classData) {
       return res.status(404).json({ message: 'Class not found' });

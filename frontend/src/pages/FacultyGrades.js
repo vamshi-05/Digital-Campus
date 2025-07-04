@@ -40,6 +40,7 @@ const FacultyGrades = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isEditAll, setIsEditAll] = useState(false); // Track if Edit All mode is active
 
   // Fetch all classes and subjects on mount
   useEffect(() => {
@@ -53,7 +54,10 @@ const FacultyGrades = () => {
   
   useEffect(() => {
     if (selectedSemester) {
+      console.log(selectedSemester)
+      console.log(classes);
       setFilteredClasses(classes.filter(cls => cls.semester === selectedSemester));
+      console.log((classes.filter(cls => cls.semester === selectedSemester)));
       setSelectedClass('');
       setStudents([]);
       setMarks({});
@@ -68,13 +72,16 @@ const FacultyGrades = () => {
     if (selectedClass) {
       // Find the selected class object
       const cls = classes.find(c => c._id === selectedClass);
+      // console.log(cls);
+      // console.log(user)
       if (cls && Array.isArray(cls.subjects)) {
         // Only show subjects where faculty matches user.id
         setFilteredSubjects(
           cls.subjects
-            .filter(s => (s.faculty?._id || s.faculty) === user.id)
+            .filter(s => (s.faculty) === user.id)
             .map(s => s.subject)
         );
+        console.log(filteredSubjects);
       } else {
         setFilteredSubjects([]);
       }
@@ -161,6 +168,8 @@ const FacultyGrades = () => {
   };
 
   const handleMarkChange = (studentId, field, value) => {
+    // Only allow midExam1 and midExam2 to be changed
+    if (field !== 'midExam1' && field !== 'midExam2') return;
     setMarks(prev => ({
       ...prev,
       [studentId]: {
@@ -173,6 +182,17 @@ const FacultyGrades = () => {
 
   const handleEdit = (studentId) => {
     setEditing(prev => ({ ...prev, [studentId]: true }));
+    setIsEditAll(false); // Ensure Edit All is off if editing individually
+  };
+
+  const handleEditAll = () => {
+    // Enable editing for all students
+    const newEditing = {};
+    students.forEach(s => {
+      newEditing[s._id] = true;
+    });
+    setEditing(newEditing);
+    setIsEditAll(true);
   };
 
   const handleSave = async (studentId) => {
@@ -185,7 +205,7 @@ const FacultyGrades = () => {
         subjectId: selectedSubject,
         classId: selectedClass,
         semester: selectedSemester,
-        academicYear: academicYears[0], // Default to current year, or make selectable
+        academicYear: academicYears[0],
         examNumber: 1,
         marks: m.midExam1 !== '' ? Number(m.midExam1) : undefined,
       });
@@ -198,17 +218,6 @@ const FacultyGrades = () => {
         examNumber: 2,
         marks: m.midExam2 !== '' ? Number(m.midExam2) : undefined,
       });
-      // Only allow external marks if both mids are present
-      if (m.externalMarks !== '') {
-        await axios.post('/grade/external-marks', {
-          studentId,
-          subjectId: selectedSubject,
-          classId: selectedClass,
-          semester: selectedSemester,
-          academicYear: academicYears[0],
-          marks: Number(m.externalMarks),
-        });
-      }
       setEditing(prev => ({ ...prev, [studentId]: false }));
       setSuccess('Marks saved!');
       fetchAllMarks();
@@ -224,12 +233,30 @@ const FacultyGrades = () => {
     setError('');
     try {
       for (const student of students) {
-        if (editing[student._id]) {
-          await handleSave(student._id);
-        }
+        const m = marks[student._id] || {};
+        await axios.post('/grade/mid-exam', {
+          studentId: student._id,
+          subjectId: selectedSubject,
+          classId: selectedClass,
+          semester: selectedSemester,
+          academicYear: academicYears[0],
+          examNumber: 1,
+          marks: m.midExam1 !== '' ? Number(m.midExam1) : undefined,
+        });
+        await axios.post('/grade/mid-exam', {
+          studentId: student._id,
+          subjectId: selectedSubject,
+          classId: selectedClass,
+          semester: selectedSemester,
+          academicYear: academicYears[0],
+          examNumber: 2,
+          marks: m.midExam2 !== '' ? Number(m.midExam2) : undefined,
+        });
       }
       setSuccess('All marks saved!');
       fetchAllMarks();
+      setIsEditAll(false); // Exit Edit All mode after saving
+      setEditing({});
     } catch (err) {
       setError('Failed to save all marks');
     } finally {
@@ -274,15 +301,16 @@ const FacultyGrades = () => {
               <option key={cls._id} value={cls._id}>{cls.fullName || cls.name}</option>
             ))}
           </select>
-          {console.log(filteredSubjects)}
+          {/* {console.log(filteredSubjects)} */}
           <select
             value={selectedSubject}
             onChange={e => setSelectedSubject(e.target.value)}
             disabled={!selectedClass}
           >
+            {/* {console.log("filteredSubjects", filteredSubjects)} */}
             <option value="">Select Subject</option>
             {filteredSubjects.map(sub => (
-              <option key={sub._id} value={sub._id}>{sub.name}</option>
+              <option key={sub} value={sub}>{subjects.find(s => s._id === sub)?.name}</option>
             ))}
           </select>
         </div>
@@ -294,9 +322,14 @@ const FacultyGrades = () => {
       ) : selectedSubject && students.length > 0 ? (
         <div className="grades-section">
           <h3>Enter Marks for All Students</h3>
-          <button className="submit-btn" onClick={handleSaveAll} style={{ float: 'right', marginBottom: 10 }}>
-            Save All
+          <button className="edit-btn" onClick={handleEditAll} style={{ float: 'right', marginBottom: 10 }} disabled={isEditAll}>
+            Edit All
           </button>
+          {isEditAll && (
+            <button className="submit-btn" onClick={handleSaveAll} style={{ float: 'right', marginBottom: 10, marginRight: 100 }}>
+              Save All
+            </button>
+          )}
           <div className="table-container">
             <table className="grades-table">
               <thead>
@@ -322,7 +355,12 @@ const FacultyGrades = () => {
                             min={0}
                             max={f.max}
                             value={m[f.key] ?? ''}
-                            disabled={!isEditing}
+                            disabled={
+                              // Only midExam1 and midExam2 are editable, external is always disabled
+                              f.key === 'externalMarks' ||
+                              (f.key !== 'midExam1' && f.key !== 'midExam2')
+                              || (!isEditAll && !isEditing && (f.key === 'midExam1' || f.key === 'midExam2'))
+                            }
                             onChange={e => handleMarkChange(student._id, f.key, e.target.value)}
                             style={{ width: 70 }}
                           />
@@ -335,10 +373,12 @@ const FacultyGrades = () => {
                         )}
                       </td>
                       <td>
-                        {!isEditing ? (
-                          <button className="edit-btn" onClick={() => handleEdit(student._id)}>Edit</button>
-                        ) : (
-                          <button className="submit-btn" onClick={() => handleSave(student._id)}>Save</button>
+                        {!isEditAll && (
+                          !isEditing ? (
+                            <button className="edit-btn" onClick={() => handleEdit(student._id)}>Edit</button>
+                          ) : (
+                            <button className="submit-btn" onClick={() => handleSave(student._id)}>Save</button>
+                          )
                         )}
                       </td>
                     </tr>

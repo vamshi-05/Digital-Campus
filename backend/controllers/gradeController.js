@@ -492,18 +492,20 @@ exports.getStudentDetailedGrades = async (req, res) => {
 // Get grades for faculty to manage
 exports.getFacultyGrades = async (req, res) => {
   try {
-    if (req.user.role !== 'faculty') {
+    if (req.user.role !== 'faculty' && req.user.role !== 'departmentAdmin') {
       return res.status(403).json({ message: 'Access denied. Only faculty can view faculty grades.' });
     }
 
     const { classId, subjectId, semester, academicYear } = req.query;
 
-    let query = { faculty: req.user._id };
+    let query = {  };
 
     if (classId) query.class = classId;
     if (subjectId) query.subject = subjectId;
     if (semester) query.semester = semester;
     if (academicYear) query.academicYear = academicYear;
+
+    console.log(query);
 
     const grades = await Grade.find(query)
       .populate('student', 'name rollNumber')

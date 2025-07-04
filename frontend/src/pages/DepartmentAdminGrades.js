@@ -11,51 +11,95 @@ const DepartmentAdminGrades = () => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingGrade, setEditingGrade] = useState(null);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [semesterResults, setSemesterResults] = useState([]);
+  const [editing, setEditing] = useState({}); // { gradeId: true/false }
+  const [isEditAll, setIsEditAll] = useState(false);
+  const [externalMarks, setExternalMarks] = useState({}); // { gradeId: value }
+  const [success, setSuccess] = useState('');
   
-  // Form state
-  const [formData, setFormData] = useState({
-    studentId: '',
-    subjectId: '',
-    classId: '',
-    semester: '',
-    academicYear: '',
-    marks: ''
-  });
-
-  // Filters
-  const [filters, setFilters] = useState({
-    classId: '',
-    subjectId: '',
-    semester: '',
-    academicYear: ''
-  });
+  // New state for selection and filtering
+  const [selectedSemester, setSelectedSemester] = useState('');
+  const [filteredClasses, setFilteredClasses] = useState([]);
+  const [selectedClass, setSelectedClass] = useState('');
+  const [filteredSubjects, setFilteredSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [filteredStudents, setFilteredStudents] = useState([]);
 
   const semesters = ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
   const academicYears = ['2023-24', '2024-25', '2025-26'];
 
   useEffect(() => {
     if (user.role === 'departmentAdmin') {
-      fetchGrades();
-      fetchStudents();
-      fetchSubjects();
       fetchClasses();
+      fetchSubjects();
     }
-  }, [user, filters]);
+  }, [user]);
 
-  const fetchGrades = async () => {
+  useEffect(() => {
+    if (selectedSemester) {
+      setFilteredClasses(classes.filter(cls => cls.semester === selectedSemester));
+      setSelectedClass('');
+      setFilteredSubjects([]);
+      setSelectedSubject('');
+      setFilteredStudents([]);
+      setGrades([]);
+    }
+  }, [selectedSemester, classes]);
+
+  useEffect(() => {
+    if (selectedClass) {
+      const cls = classes.find(c => c._id === selectedClass);
+      if (cls && Array.isArray(cls.subjects)) {
+        setFilteredSubjects(cls.subjects.map(s => s.subject));
+      } else {
+        setFilteredSubjects([]);
+      }
+      setSelectedSubject('');
+      setFilteredStudents([]);
+      setGrades([]);
+    }
+  }, [selectedClass, classes]);
+
+  useEffect(() => {
+    if (selectedClass) {
+      fetchStudents(selectedClass);
+    }
+  }, [selectedClass]);
+
+  useEffect(() => {
+    console.log(students);
+    console.log(selectedClass);
+    if (selectedClass && students.length > 0) {
+      setFilteredStudents(students.filter(s => s.class === selectedClass));
+    } else {
+      setFilteredStudents([]);
+    }
+    console.log(filteredStudents);
+  }, [selectedClass, students]);
+
+  useEffect(() => {
+    if (selectedClass && selectedSubject) {
+      fetchGrades(selectedClass, selectedSubject);
+    } else {
+      setGrades([]);
+      setExternalMarks({});
+    }
+  }, [selectedClass, selectedSubject]);
+
+  const fetchGrades = async (classId, subjectId) => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.classId) params.append('classId', filters.classId);
-      if (filters.subjectId) params.append('subjectId', filters.subjectId);
-      if (filters.semester) params.append('semester', filters.semester);
-      if (filters.academicYear) params.append('academicYear', filters.academicYear);
-
+      params.append('classId', classId);
+      params.append('subjectId', subjectId);
       const response = await axios.get(`/grade/faculty-grades?${params}`);
+      console.log(response.data);
       setGrades(response.data);
+      // Initialize externalMarks state
+      const extMarks = {};
+      response.data.forEach(g => {
+        extMarks[g._id] = g.externalMarks ?? '';
+      });
+      setExternalMarks(extMarks);
     } catch (err) {
       setError('Failed to fetch grades');
     } finally {
@@ -63,12 +107,13 @@ const DepartmentAdminGrades = () => {
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (classId) => {
     try {
-      const response = await axios.get('/department-admin/students');
+      const response = await axios.get(`/class/${classId}/students`);
+      console.log(response.data);
       setStudents(response.data);
     } catch (err) {
-      console.error('Failed to fetch students:', err);
+      setStudents([]);
     }
   };
 
@@ -77,7 +122,7 @@ const DepartmentAdminGrades = () => {
       const response = await axios.get('/subject/all');
       setSubjects(response.data);
     } catch (err) {
-      console.error('Failed to fetch subjects:', err);
+      setSubjects([]);
     }
   };
 
@@ -86,68 +131,64 @@ const DepartmentAdminGrades = () => {
       const response = await axios.get('/class/all');
       setClasses(response.data);
     } catch (err) {
-      console.error('Failed to fetch classes:', err);
+      setClasses([]);
     }
   };
 
-  const fetchSemesterResults = async (studentId) => {
-    try {
-      const response = await axios.get(`/grade/semester-results/${studentId}`);
-      setSemesterResults(response.data);
-    } catch (err) {
-      console.error('Failed to fetch semester results:', err);
-    }
+  const handleEdit = (gradeId) => {
+    setEditing(prev => ({ ...prev, [gradeId]: true }));
+    setIsEditAll(false);
   };
 
-  const handleStudentSelect = async (studentId) => {
-    const student = students.find(s => s._id === studentId);
-    setSelectedStudent(student);
-    if (studentId) {
-      await fetchSemesterResults(studentId);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingGrade) {
-        await axios.put(`/grade/external-marks/${editingGrade._id}`, {
-          marks: parseInt(formData.marks)
-        });
-        setEditingGrade(null);
-      } else {
-        await axios.post('/grade/external-marks', formData);
-      }
-      
-      setFormData({
-        studentId: '',
-        subjectId: '',
-        classId: '',
-        semester: '',
-        academicYear: '',
-        marks: ''
-      });
-      setShowAddForm(false);
-      fetchGrades();
-      if (selectedStudent) {
-        await fetchSemesterResults(selectedStudent._id);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save external marks');
-    }
-  };
-
-  const handleEdit = (grade) => {
-    setEditingGrade(grade);
-    setFormData({
-      studentId: grade.student._id,
-      subjectId: grade.subject._id,
-      classId: grade.class._id,
-      semester: grade.semester,
-      academicYear: grade.academicYear,
-      marks: grade.externalMarks || ''
+  const handleEditAll = () => {
+    const newEditing = {};
+    grades.forEach(g => {
+      newEditing[g._id] = true;
     });
-    setShowAddForm(true);
+    setEditing(newEditing);
+    setIsEditAll(true);
+  };
+
+  const handleExternalMarkChange = (gradeId, value) => {
+    setExternalMarks(prev => ({ ...prev, [gradeId]: value }));
+    setEditing(prev => ({ ...prev, [gradeId]: true }));
+  };
+
+  const handleSave = async (gradeId) => {
+    setLoading(true);
+    setError('');
+    try {
+      await axios.put(`/grade/external-marks/${gradeId}`, {
+        marks: externalMarks[gradeId] !== '' ? Number(externalMarks[gradeId]) : undefined
+      });
+      setEditing(prev => ({ ...prev, [gradeId]: false }));
+      setSuccess('Marks saved!');
+      fetchGrades(selectedClass, selectedSubject);
+    } catch (err) {
+      setError('Failed to save marks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      for (const grade of grades) {
+        await axios.put(`/grade/external-marks/${grade._id}`, {
+          marks: externalMarks[grade._id] !== '' ? Number(externalMarks[grade._id]) : undefined
+        });
+      }
+      setSuccess('All marks saved!');
+      setIsEditAll(false);
+      setEditing({});
+      fetchGrades(selectedClass, selectedSubject);
+    } catch (err) {
+      setError('Failed to save all marks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getGradeColor = (grade) => {
@@ -181,344 +222,117 @@ const DepartmentAdminGrades = () => {
 
   return (
     <div className="dept-admin-grades-container">
-      <div className="dept-admin-grades-header">
-        <h1>Manage External Marks</h1>
-        <button 
-          className="add-marks-btn"
-          onClick={() => setShowAddForm(true)}
-        >
-          Add External Marks
-        </button>
-      </div>
-
-      {/* Student Selection */}
-      <div className="student-selection-section">
-        <h3>Select Student</h3>
-        <select
-          value={selectedStudent?._id || ''}
-          onChange={(e) => handleStudentSelect(e.target.value)}
-          className="student-select"
-        >
-          <option value="">Choose a student to view detailed results</option>
-          {students.map(student => (
-            <option key={student._id} value={student._id}>
-              {student.name} - {student.rollNumber} - {student.semester}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Semester Results for Selected Student */}
-      {selectedStudent && (
-        <div className="semester-results-section">
-          <h3>Academic Progress - {selectedStudent.name}</h3>
-          <div className="results-grid">
-            {semesterResults.map((result, index) => {
-              const sgpaStatus = getSGPAStatus(result.sgpa);
-              return (
-                <div key={result._id} className="result-card">
-                  <div className="result-header">
-                    <h4>{result.semester}</h4>
-                    <span className={`status-badge ${result.isCompleted ? 'completed' : 'pending'}`}>
-                      {result.isCompleted ? 'Completed' : 'Pending'}
-                    </span>
-                  </div>
-                  <div className="result-details">
-                    <div className="sgpa-display">
-                      <span className="label">SGPA:</span>
-                      <span 
-                        className="sgpa-value"
-                        style={{ color: sgpaStatus.color }}
-                      >
-                        {result.sgpa.toFixed(2)}
-                      </span>
-                      <span className="sgpa-label" style={{ color: sgpaStatus.color }}>
-                        {sgpaStatus.label}
-                      </span>
-                    </div>
-                    <div className="credits-info">
-                      <span>Credits: {result.earnedCredits}/{result.totalCredits}</span>
-                    </div>
-                    {result.hasBacklog && (
-                      <div className="backlog-warning">
-                        <span>⚠️ Backlog: {result.backlogSubjects.length} subjects</span>
-                      </div>
-                    )}
-                  </div>
-                  {index === semesterResults.length - 1 && (
-                    <div className="cgpa-display">
-                      <span className="label">CGPA:</span>
-                      <span className="cgpa-value">
-                        {result.cgpa.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Filters */}
+      
       <div className="filters-section">
-        <h3>Filters</h3>
         <div className="filters-grid">
           <select
-            value={filters.classId}
-            onChange={(e) => setFilters({...filters, classId: e.target.value})}
+            value={selectedSemester}
+            onChange={e => setSelectedSemester(e.target.value)}
           >
-            <option value="">All Classes</option>
-            {classes.map(cls => (
-              <option key={cls._id} value={cls._id}>{cls.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={filters.subjectId}
-            onChange={(e) => setFilters({...filters, subjectId: e.target.value})}
-          >
-            <option value="">All Subjects</option>
-            {subjects.map(subject => (
-              <option key={subject._id} value={subject._id}>{subject.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={filters.semester}
-            onChange={(e) => setFilters({...filters, semester: e.target.value})}
-          >
-            <option value="">All Semesters</option>
+            <option value="">Select Semester</option>
             {semesters.map(sem => (
               <option key={sem} value={sem}>{sem}</option>
             ))}
           </select>
-
           <select
-            value={filters.academicYear}
-            onChange={(e) => setFilters({...filters, academicYear: e.target.value})}
+            value={selectedClass}
+            onChange={e => setSelectedClass(e.target.value)}
+            disabled={!selectedSemester}
           >
-            <option value="">All Years</option>
-            {academicYears.map(year => (
-              <option key={year} value={year}>{year}</option>
+            <option value="">Select Class</option>
+            {filteredClasses.map(cls => (
+              <option key={cls._id} value={cls._id}>{cls.fullName || cls.name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedSubject}
+            onChange={e => setSelectedSubject(e.target.value)}
+            disabled={!selectedClass}
+          >
+            <option value="">Select Subject</option>
+            {filteredSubjects.map(sub => (
+              <option key={sub} value={sub}>{subjects.find(s => s._id === sub)?.name}</option>
             ))}
           </select>
         </div>
       </div>
-
-      {/* Add/Edit Form */}
-      {showAddForm && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>{editingGrade ? 'Edit External Marks' : 'Add External Marks'}</h2>
-              <button 
-                className="close-btn"
-                onClick={() => {
-                  setShowAddForm(false);
-                  setEditingGrade(null);
-                }}
-              >
-                ×
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="marks-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Student</label>
-                  <select
-                    value={formData.studentId}
-                    onChange={(e) => setFormData({...formData, studentId: e.target.value})}
-                    required
-                    disabled={!!editingGrade}
-                  >
-                    <option value="">Select Student</option>
-                    {students.map(student => (
-                      <option key={student._id} value={student._id}>
-                        {student.name} - {student.rollNumber}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Subject</label>
-                  <select
-                    value={formData.subjectId}
-                    onChange={(e) => setFormData({...formData, subjectId: e.target.value})}
-                    required
-                    disabled={!!editingGrade}
-                  >
-                    <option value="">Select Subject</option>
-                    {subjects.map(subject => (
-                      <option key={subject._id} value={subject._id}>{subject.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Class</label>
-                  <select
-                    value={formData.classId}
-                    onChange={(e) => setFormData({...formData, classId: e.target.value})}
-                    required
-                    disabled={!!editingGrade}
-                  >
-                    <option value="">Select Class</option>
-                    {classes.map(cls => (
-                      <option key={cls._id} value={cls._id}>{cls.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>Semester</label>
-                  <select
-                    value={formData.semester}
-                    onChange={(e) => setFormData({...formData, semester: e.target.value})}
-                    required
-                    disabled={!!editingGrade}
-                  >
-                    <option value="">Select Semester</option>
-                    {semesters.map(sem => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Academic Year</label>
-                  <select
-                    value={formData.academicYear}
-                    onChange={(e) => setFormData({...formData, academicYear: e.target.value})}
-                    required
-                    disabled={!!editingGrade}
-                  >
-                    <option value="">Select Year</option>
-                    {academicYears.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>External Marks (0-60)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={formData.marks}
-                    onChange={(e) => setFormData({...formData, marks: e.target.value})}
-                    required
-                    placeholder="Enter external marks"
-                  />
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button type="submit" className="submit-btn">
-                  {editingGrade ? 'Update Marks' : 'Add Marks'}
-                </button>
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingGrade(null);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Grades Table */}
-      <div className="grades-section">
-        <h3>External Marks Management</h3>
-        {loading ? (
-          <div className="loading">Loading grades...</div>
-        ) : error ? (
-          <div className="error">{error}</div>
-        ) : (
+      {error && <div className="error">{error}</div>}
+      {success && <div className="success">{success}</div>}
+      {console.log(filteredStudents)}
+      {loading ? (
+        ""
+        // <div className="loading">Loading...</div>
+      ) : selectedSemester && selectedClass && selectedSubject && filteredStudents ? (
+        
+        <div className="grades-section">
+          <h3>External Marks Management</h3>
+          <div className="dept-admin-grades-header">
+        <h1>Manage External Marks</h1>
+        <button className="edit-btn" onClick={handleEditAll} style={{ float: 'right', marginBottom: 10, marginLeft:'20%', marginRight:'20%', padding: 10, width:20 }} disabled={isEditAll}>
+          Edit All
+        </button>
+        {isEditAll && (
+          <button className="submit-btn" onClick={handleSaveAll} style={{ float: 'right', marginBottom: 10, marginRight: 100 }}>
+            Save All
+          </button>
+        )}
+      </div>
           <div className="table-container">
             <table className="grades-table">
               <thead>
                 <tr>
                   <th>Student</th>
-                  <th>Subject</th>
-                  <th>Class</th>
-                  <th>Semester</th>
-                  <th>Mid Exam 1</th>
-                  <th>Mid Exam 2</th>
-                  <th>Internal Marks</th>
+                  <th>Mid 1</th>
+                  <th>Mid 2</th>
                   <th>External Marks</th>
-                  <th>Total</th>
-                  <th>Grade</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {grades.map(grade => (
-                  <tr key={grade._id}>
-                    <td>
-                      <div className="student-info">
-                        <strong>{grade.student.name}</strong>
-                        <span>{grade.student.rollNumber}</span>
-                      </div>
-                    </td>
-                    <td>{grade.subject.name}</td>
-                    <td>{grade.class.name}</td>
-                    <td>{grade.semester}</td>
-                    <td className={grade.midExam1 !== null ? 'marks-entered' : 'marks-pending'}>
-                      {grade.midExam1 !== null ? grade.midExam1 : 'Pending'}
-                    </td>
-                    <td className={grade.midExam2 !== null ? 'marks-entered' : 'marks-pending'}>
-                      {grade.midExam2 !== null ? grade.midExam2 : 'Pending'}
-                    </td>
-                    <td className={grade.internalMarks !== null ? 'marks-entered' : 'marks-pending'}>
-                      {grade.internalMarks !== null ? grade.internalMarks : 'Pending'}
-                    </td>
-                    <td className={grade.externalMarks !== null ? 'marks-entered' : 'marks-pending'}>
-                      {grade.externalMarks !== null ? grade.externalMarks : 'Pending'}
-                    </td>
-                    <td className={grade.totalMarks !== null ? 'marks-entered' : 'marks-pending'}>
-                      {grade.totalMarks !== null ? grade.totalMarks : 'Pending'}
-                    </td>
-                    <td>
-                      {grade.grade && (
-                        <span 
-                          className="grade-badge"
-                          style={{ backgroundColor: getGradeColor(grade.grade) }}
-                        >
-                          {grade.grade}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button 
-                          className="edit-btn"
-                          onClick={() => handleEdit(grade)}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {/* {console.log(grades)} */}
+                {grades.length === 0 && <tr><td colSpan={3}>Faculty Not Updated Internal Marks</td></tr>}
+                {grades.map(grade => {
+                  const student = filteredStudents.find(s => s._id === grade.student._id);
+                  if (!student) return null;
+                  const isEditing = !!editing[grade._id];
+                  return (
+                    <tr key={grade._id}>
+                      <td>
+                        <div className="student-info">
+                          <strong>{student.name}</strong>
+                          <span>{student.rollNumber}</span>
+                        </div>
+                      </td>
+                      <td>{grade.midExam1}</td>
+                      <td>{grade.midExam2}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0}
+                          max={60}
+                          value={externalMarks[grade._id] ?? ''}
+                          disabled={!isEditAll && !isEditing}
+                          onChange={e => handleExternalMarkChange(grade._id, e.target.value)}
+                          style={{ width: 70 }}
+                        />
+                      </td>
+                      <td>
+                        {!isEditAll && (
+                          !isEditing ? (
+                            <button className="edit-btn" onClick={() => handleEdit(grade._id)}>Edit</button>
+                          ) : (
+                            <button className="submit-btn" onClick={() => handleSave(grade._id)}>Save</button>
+                          )
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 };

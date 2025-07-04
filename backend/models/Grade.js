@@ -62,7 +62,7 @@ const gradeSchema = new mongoose.Schema({
   },
   grade: { 
     type: String, 
-    enum: ['A+', 'A', 'B+', 'B', 'C+', 'C', 'F'],
+    enum: ['S', 'A+', 'A', 'B+', 'B','P','F','AB', null],
     default: null
   },
   gradePoints: { 
