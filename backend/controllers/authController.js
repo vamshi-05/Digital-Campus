@@ -88,7 +88,9 @@ exports.getMe = async (req, res) => {
       semester: user.semester,
       address: user.address,
       parentName: user.parentName,
-      parentPhone: user.parentPhone
+      parentPhone: user.parentPhone,
+      grades: user.grades,
+      cgpa: user.cgpa
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

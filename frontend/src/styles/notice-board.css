@@ -42,7 +42,7 @@
 
 .filters-grid {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 15px;
   align-items: center;
 }
@@ -200,12 +200,32 @@
 }
 
 .priority-badge {
+  background: #007bff;
   color: white;
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
+}
+
+.published-by-me-badge {
+  background: #28a745;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.notice-card.published-by-me {
+  border-left: 4px solid #28a745;
+  background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.notice-card.published-by-me:hover {
+  box-shadow: 0 4px 20px rgba(40, 167, 69, 0.15);
 }
 
 .notice-actions {

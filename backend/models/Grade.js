@@ -115,25 +115,24 @@ gradeSchema.pre('save', function(next) {
   // Calculate total marks
   if (this.internalMarks !== null && this.externalMarks !== null) {
     this.totalMarks = this.internalMarks + this.externalMarks;
-    
-    // Calculate grade and grade points
+    // Calculate grade and grade points (R22)
     if (this.totalMarks >= 90) {
-      this.grade = 'A+';
+      this.grade = 'S';
       this.gradePoints = 10;
     } else if (this.totalMarks >= 80) {
-      this.grade = 'A';
+      this.grade = 'A+';
       this.gradePoints = 9;
     } else if (this.totalMarks >= 70) {
-      this.grade = 'B+';
+      this.grade = 'A';
       this.gradePoints = 8;
     } else if (this.totalMarks >= 60) {
-      this.grade = 'B';
+      this.grade = 'B+';
       this.gradePoints = 7;
     } else if (this.totalMarks >= 50) {
-      this.grade = 'C+';
+      this.grade = 'B';
       this.gradePoints = 6;
     } else if (this.totalMarks >= 40) {
-      this.grade = 'C';
+      this.grade = 'P';
       this.gradePoints = 5;
     } else {
       this.grade = 'F';

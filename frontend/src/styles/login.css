@@ -59,6 +59,7 @@
   font-size: 1rem;
   transition: all 0.3s ease;
   background-color: #f8f9fa;
+  padding-right: 2rem;
 }
 
 .login-form-control:focus {

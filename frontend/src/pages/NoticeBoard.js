@@ -28,6 +28,7 @@ const NoticeBoard = () => {
     department: "",
     role: "",
     search: "",
+    view: "all" // "all", "published-by-me", "published-to-me"
   });
 
   const [departments, setDepartments] = useState([]);
@@ -61,6 +62,7 @@ const NoticeBoard = () => {
       if (filters.department) params.department = filters.department;
       if (filters.role) params.role = filters.role;
       if (filters.search) params.search = filters.search;
+      if (filters.view) params.view = filters.view;
       const response = await axios.get("/notice/all", { params });
       setNotices(response.data);
     } catch (err) {
@@ -240,6 +242,18 @@ const NoticeBoard = () => {
     return notice.createdBy._id === user.id || user.role === "admin";
   };
 
+  const isPublishedByMe = (notice) => {
+    return notice.createdBy._id === user.id;
+  };
+
+  const getNoticeCardClass = (notice) => {
+    let className = "notice-card";
+    if (isPublishedByMe(notice)) {
+      className += " published-by-me";
+    }
+    return className;
+  };
+
   return (
     <div className="notice-board-container">
       <div className="notice-board-header">
@@ -273,6 +287,22 @@ const NoticeBoard = () => {
             }
             className="search-input"
           />
+          
+          {/* View Filter - Show different options based on user role */}
+          {user.role !== 'student' && (
+            <select
+              value={filters.view}
+              onChange={(e) =>
+                setFilters({ ...filters, view: e.target.value, page: 1 })
+              }
+            >
+              <option value="all">All Notices</option>
+              <option value="published-by-me">Published by Me</option>
+              <option value="published-to-me">Published to Me</option>
+            </select>
+          )}
+          
+          {user.role === 'admin' && (
           <select
             value={filters.department}
             onChange={(e) =>
@@ -286,6 +316,7 @@ const NoticeBoard = () => {
               </option>
             ))}
           </select>
+          )}
           <select
             value={filters.role}
             onChange={(e) =>
@@ -452,15 +483,17 @@ const NoticeBoard = () => {
       )}
 
       {/* Notices List */}
+      
       <div className="notices-section">
         {loading ? (
           <div className="loading">Loading notices...</div>
         ) : (
           <>
+          {console.log("notices",notices)}
             <div className="notices-grid">
               {notices.notices &&
-                notices.notices.map((notice) => (
-                  <div key={notice._id} className="notice-card">
+                notices.notices.filter(notice => notice.roles.includes(user.role) || (isPublishedByMe(notice))).map((notice) => (
+                  <div key={notice._id} className={getNoticeCardClass(notice)}>
                     <div className="notice-header">
                       <div className="notice-meta">
                         <span className="category-icon">
@@ -475,6 +508,11 @@ const NoticeBoard = () => {
                         >
                           {notice.priority}
                         </span>
+                        {isPublishedByMe(notice) && (
+                          <span className="published-by-me-badge">
+                            Published by You
+                          </span>
+                        )}
                       </div>
                       <div className="notice-actions">
                         {canEditNotice(notice) && (
@@ -493,14 +531,6 @@ const NoticeBoard = () => {
                             </button>
                           </>
                         )}
-                        {/* {user.role === "admin" && (
-                          <button
-                            className="btn btn-small btn-secondary"
-                            onClick={() => handleArchive(notice._id)}
-                          >
-                            Archive
-                          </button>
-                        )} */}
                       </div>
                     </div>
 

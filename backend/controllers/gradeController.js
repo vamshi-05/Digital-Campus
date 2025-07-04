@@ -595,4 +595,143 @@ exports.updateExternalMarks = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+// Helper: R22 grade points
+const getR22GradePoint = (percentage) => {
+  if (percentage >= 90) return 10; // S
+  if (percentage >= 80) return 9;  // A+
+  if (percentage >= 70) return 8;  // A
+  if (percentage >= 60) return 7;  // B+
+  if (percentage >= 50) return 6;  // B
+  if (percentage >= 40) return 5;  // P
+  return 0; // F
+};
+
+// Helper: R22 pass criteria for B.Tech
+const isR22Pass = (cie, see, total) => {
+  return cie >= 14 && see >= 21 && total >= 40; // 35% of 40 = 14, 35% of 60 = 21, 40% overall
+};
+
+exports.releaseSemesterGrades = async (req, res) => {
+  try {
+    if (req.user.role !== 'departmentAdmin') {
+      return res.status(403).json({ message: 'Access denied. Only department admin can release grades.' });
+    }
+    
+    const { semester, academicYear } = req.body;
+    if (!semester || !academicYear) {
+      return res.status(400).json({ message: 'Semester and academic year are required.' });
+    }
+
+    // Get all students in this department
+    const students = await User.find({ department: req.user.department, role: 'student' });
+    let updatedCount = 0;
+    // console.log("students",students);
+    console.log("semester",semester);
+    console.log("academicYear",academicYear);
+    for (const student of students) {
+      // Get all grades for this student in this semester
+      console.log("student",student._id);
+      const grades = await Grade.find({ 
+        student: student._id,
+        semester, 
+        academicYear 
+      }).populate('subject');
+      console.log("grades",grades);
+      if (grades.length === 0) continue;
+
+      let allPassed = true;
+      let totalCredits = 0;
+      let totalGradePoints = 0;
+
+      // Group grades by subject
+      const subjectGroups = {};
+      grades.forEach(grade => {
+        const subjectId = grade.subject._id.toString();
+        if (!subjectGroups[subjectId]) {
+          subjectGroups[subjectId] = [];
+        }
+        subjectGroups[subjectId].push(grade);
+      });
+
+      // Process each subject
+      for (const [subjectId, subjectGrades] of Object.entries(subjectGroups)) {
+        // Use the first grade entry for subject info (they should all be the same subject)
+        const firstGrade = subjectGrades[0];
+        const subject = firstGrade.subject;
+        const credits = subject.credits || 3;
+
+        // Check if all required marks are present
+        const hasInternalMarks = firstGrade.internalMarks !== null && firstGrade.internalMarks !== undefined;
+        const hasExternalMarks = firstGrade.externalMarks !== null && firstGrade.externalMarks !== undefined;
+        const hasTotalMarks = firstGrade.totalMarks !== null && firstGrade.totalMarks !== undefined;
+
+        if (!hasInternalMarks || !hasExternalMarks || !hasTotalMarks) {
+          allPassed = false;
+          continue;
+        }
+
+        // R22 pass criteria: CIE >= 14 (35% of 40), SEE >= 21 (35% of 60), Total >= 40 (40% of 100)
+        const cie = firstGrade.internalMarks;
+        const see = firstGrade.externalMarks;
+        const total = firstGrade.totalMarks;
+
+        if (!isR22Pass(cie, see, total)) {
+          allPassed = false;
+        }
+
+        // Calculate grade point for this subject
+        const percentage = total; // total is already out of 100
+        const gradePoint = getR22GradePoint(percentage);
+        
+        totalCredits += credits;
+        totalGradePoints += (gradePoint * credits);
+      }
+
+      // Update student grades array for this semester
+      let gradesArr = student.grades || [];
+      let semesterIndex = gradesArr.findIndex(g => g.semester === semester);
+      
+      if (semesterIndex === -1) {
+        gradesArr.push({ 
+          semester, 
+          isSemesterCompleted: false, 
+          sgpa: 0, 
+          released: false 
+        });
+        semesterIndex = gradesArr.length - 1;
+      }
+
+      if (allPassed && totalCredits > 0) {
+        const sgpa = totalGradePoints / totalCredits;
+        gradesArr[semesterIndex].sgpa = parseFloat(sgpa.toFixed(2));
+      } else {
+        gradesArr[semesterIndex].sgpa = 0;
+
+      }
+      gradesArr[semesterIndex].isSemesterCompleted = true;
+      
+      gradesArr[semesterIndex].released = true;
+
+      // Update CGPA (average of completed and released SGPAs)
+      const completed = gradesArr.filter(g => g.isSemesterCompleted && g.released);
+      let cgpa = 0;
+      if (completed.length > 0) {
+        cgpa = completed.reduce((sum, g) => sum + g.sgpa, 0) / completed.length;
+      }
+
+      student.grades = gradesArr;
+      student.cgpa = parseFloat(cgpa.toFixed(2));
+      await student.save();
+      updatedCount++;
+    }
+
+    res.json({ 
+      message: `Grades released for semester ${semester} (${academicYear}). Updated ${updatedCount} students.` 
+    });
+  } catch (err) {
+    console.error('Release semester grades error:', err);
+    res.status(500).json({ message: 'Failed to release semester grades.' });
+  }
 }; 

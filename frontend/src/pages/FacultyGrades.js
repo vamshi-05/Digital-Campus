@@ -41,6 +41,7 @@ const FacultyGrades = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isEditAll, setIsEditAll] = useState(false); // Track if Edit All mode is active
+  const [academicYear, setAcademicYear] = useState(academicYears[0]);
 
   // Fetch all classes and subjects on mount
   useEffect(() => {
@@ -76,6 +77,7 @@ const FacultyGrades = () => {
       // console.log(user)
       if (cls && Array.isArray(cls.subjects)) {
         // Only show subjects where faculty matches user.id
+        setAcademicYear(cls.academicYear);
         setFilteredSubjects(
           cls.subjects
             .filter(s => (s.faculty) === user.id)
@@ -205,7 +207,7 @@ const FacultyGrades = () => {
         subjectId: selectedSubject,
         classId: selectedClass,
         semester: selectedSemester,
-        academicYear: academicYears[0],
+        academicYear: academicYear,
         examNumber: 1,
         marks: m.midExam1 !== '' ? Number(m.midExam1) : undefined,
       });
@@ -214,7 +216,7 @@ const FacultyGrades = () => {
         subjectId: selectedSubject,
         classId: selectedClass,
         semester: selectedSemester,
-        academicYear: academicYears[0],
+        academicYear: academicYear,
         examNumber: 2,
         marks: m.midExam2 !== '' ? Number(m.midExam2) : undefined,
       });
@@ -239,7 +241,7 @@ const FacultyGrades = () => {
           subjectId: selectedSubject,
           classId: selectedClass,
           semester: selectedSemester,
-          academicYear: academicYears[0],
+          academicYear: academicYear,
           examNumber: 1,
           marks: m.midExam1 !== '' ? Number(m.midExam1) : undefined,
         });
@@ -248,7 +250,7 @@ const FacultyGrades = () => {
           subjectId: selectedSubject,
           classId: selectedClass,
           semester: selectedSemester,
-          academicYear: academicYears[0],
+          academicYear: academicYear,
           examNumber: 2,
           marks: m.midExam2 !== '' ? Number(m.midExam2) : undefined,
         });

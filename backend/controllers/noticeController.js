@@ -10,6 +10,7 @@ const path = require('path');
 exports.createNotice = async (req, res) => {
   try {
     const user = req.user;
+    console.log("req.body",req.body);
     const { title, content, departments, roles, targetClasses } = req.body;
     let files = [];
     if (req.files) {
@@ -23,7 +24,7 @@ exports.createNotice = async (req, res) => {
       createdBy: user._id,
       files,
     };
-    console.log(user);
+   
     if (user.role === 'admin') {
       noticeData.departments = departments && departments.length ? departments : [];
       noticeData.roles = roles && roles.length ? roles : [];
@@ -52,7 +53,8 @@ exports.getAllNotices = async (req, res) => {
       category,
       priority,
       search,
-      status
+      status,
+      view = 'all' // New parameter: 'all', 'published-by-me', 'published-to-me'
     } = req.query;
 
     const filter = {};
@@ -71,27 +73,59 @@ exports.getAllNotices = async (req, res) => {
       ];
     }
 
-    // Role-based filtering
-    if (req.user.role === 'departmentAdmin') {
-      filter.$or = [
-        { targetAudience: 'All' },
-        { targetDepartments: req.user.department },
-        { createdBy: req.user._id }
-      ];
-    } else if (req.user.role === 'faculty') {
-      filter.$or = [
-        { targetAudience: 'All' },
-        { targetDepartments: req.user.department },
-        { targetRoles: 'faculty' },
-        { createdBy: req.user._id }
-      ];
-    } else if (req.user.role === 'student') {
-      filter.$or = [
-        { targetAudience: 'All' },
-        { targetDepartments: req.user.department },
-        { targetClasses: req.user.class },
-        { targetRoles: 'student' }
-      ];
+    // Handle view filter
+    if (view === 'published-by-me') {
+      // Show only notices created by the current user
+      filter.createdBy = req.user._id;
+    } else if (view === 'published-to-me') {
+      // Show notices published to the current user (exclude their own notices)
+      filter.createdBy = { $ne: req.user._id };
+      
+      // Role-based filtering for notices published to the user
+      if (req.user.role === 'admin') {
+        // Admin can see all notices published to them (no additional filtering needed)
+      } else if (req.user.role === 'departmentAdmin') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: { $in: ['departmentAdmin', 'faculty', 'student'] } }
+        ];
+      } else if (req.user.role === 'faculty') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: 'faculty' },
+          { targetClasses: req.user.class }
+        ];
+      } else if (req.user.role === 'student') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: 'student' },
+          { targetClasses: req.user.class }
+        ];
+      }
+    } else {
+      // Default 'all' view - show notices based on user's access
+      if (req.user.role === 'admin') {
+        // Admin can see all notices
+      } else if (req.user.role === 'departmentAdmin') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: { $in: ['departmentAdmin', 'faculty', 'student'] } },
+          { createdBy: req.user._id }
+        ];
+      } else if (req.user.role === 'faculty') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: 'faculty' },
+          { targetClasses: req.user.class },
+          { createdBy: req.user._id }
+        ];
+      } else if (req.user.role === 'student') {
+        filter.$or = [
+          { departments: req.user.department },
+          { roles: 'student' },
+          { targetClasses: req.user.class }
+        ];
+      }
     }
 
     const skip = (page - 1) * limit;
@@ -99,7 +133,7 @@ exports.getAllNotices = async (req, res) => {
     const [notices, total] = await Promise.all([
       Notice.find(filter)
         .populate('createdBy', 'name email')
-        .populate('department', 'name')
+        .populate('departments', 'name')
         .populate('targetClasses', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)

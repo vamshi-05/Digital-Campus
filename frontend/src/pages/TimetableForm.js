@@ -78,7 +78,7 @@ const TimetableForm = ({
           );
           // Normalize period.subject and period.faculty to be IDs
           sch[day.toLowerCase()] = found
-            ? found.periods.map(period => ({
+            ? found.periods.map((period) => ({
                 ...period,
                 subject: period.subject?._id || period.subject || "",
                 faculty: period.faculty?._id || period.faculty || "",
@@ -147,9 +147,11 @@ const TimetableForm = ({
       arr[idx] = { ...arr[idx], [field]: value };
       // If subject changed, auto-fill faculty
       console.log(classSubjects);
-      if (field === 'subject') {
-        const found = classSubjects.find(s => (s.subject._id || s.subject) === value);
-        arr[idx].faculty = found ? (found.faculty._id || found.faculty) : '';
+      if (field === "subject") {
+        const found = classSubjects.find(
+          (s) => (s.subject._id || s.subject) === value
+        );
+        arr[idx].faculty = found ? found.faculty._id || found.faculty : "";
       }
       return { ...sch, [day]: arr };
     });
@@ -192,7 +194,8 @@ const TimetableForm = ({
 
   const handleDelete = async () => {
     if (!timetableId) return;
-    if (!window.confirm("Are you sure you want to delete this timetable?")) return;
+    if (!window.confirm("Are you sure you want to delete this timetable?"))
+      return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -220,14 +223,17 @@ const TimetableForm = ({
   return (
     <div className="timetable-form-container">
       <h2>
-        {timetableId ? "Edit" : "Create"} Timetable for {className} ({semester}, {academicYear})
+        {timetableId ? "Edit" : "Create"} Timetable for {className} ({semester},{" "}
+        {academicYear})
+        <br />
+        <p style={{ color: "red" }}>Note: select time in 24 hour format</p>
       </h2>
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
       <form onSubmit={handleSubmit}>
         {days.map((day) => (
           <div key={day} className="day-schedule">
-            <h4>{day}</h4>
+            <h4>{day } <span style={{ color: "gray" }}>    (select time in 24 hour format)</span></h4>
             {schedule[day.toLowerCase()].map((period, idx) => (
               <div key={idx} className="period-row">
                 <select
@@ -281,24 +287,34 @@ const TimetableForm = ({
                       }
                       required
                     >
+                      {console.log(classSubjects)}
                       <option value="">Select Subject</option>
-                      {subjects.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.name}
+                      {classSubjects.map((s) => (
+                        <option key={s.subject} value={s.subject}>
+                          {subjects.find((sub) => sub._id === s.subject)
+                            ?.name || s.subject}
                         </option>
                       ))}
                     </select>
                     {/* Faculty is auto-filled, show as read-only */}
-                    { period.subject && period.subject !== "" && <input
-                      type="text"
-                      value={(() => {
-                        const found = classSubjects.find(s => (s.subject._id || s.subject) === period.subject);
-                        return faculty?.find(f => f._id === found?.faculty)?.name || '';
-                      })()}
-                      readOnly
-                      placeholder="Faculty"
-                      style={{ width: 120, background: '#f0f0f0' }}
-                    />}
+                    {period.subject && period.subject !== "" && (
+                      <input
+                        type="text"
+                        value={(() => {
+                          const found = classSubjects.find(
+                            (s) =>
+                              (s.subject._id || s.subject) === period.subject
+                          );
+                          return (
+                            faculty?.find((f) => f._id === found?.faculty)
+                              ?.name || ""
+                          );
+                        })()}
+                        readOnly
+                        placeholder="Faculty"
+                        style={{ width: 120, background: "#f0f0f0" }}
+                      />
+                    )}
                     <input
                       type="text"
                       placeholder="Room"
@@ -339,7 +355,13 @@ const TimetableForm = ({
           </div>
         ))}
         <button type="submit" disabled={loading}>
-          {loading ? (timetableId ? "Updating..." : "Saving...") : (timetableId ? "Update Timetable" : "Create Timetable")}
+          {loading
+            ? timetableId
+              ? "Updating..."
+              : "Saving..."
+            : timetableId
+            ? "Update Timetable"
+            : "Create Timetable"}
         </button>
         {timetableId && (
           <button

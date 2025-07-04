@@ -300,19 +300,19 @@ const getStudentActivities = async (studentId) => {
     });
   });
 
-  // Get grade updates
-  const recentGrades = await Grade.find({ student: studentId })
-    .populate('subject', 'name')
-    .sort({ createdAt: -1 })
-    .limit(5);
+  // // Get grade updates
+  // const recentGrades = await Grade.find({ student: studentId })
+  //   .populate('subject', 'name')
+  //   .sort({ createdAt: -1 })
+  //   .limit(5);
   
-  recentGrades.forEach(grade => {
-    activities.push({
-      type: 'grade',
-      description: `Grade received for ${grade.subject.name}: ${grade.grade}`,
-      createdAt: grade.createdAt
-    });
-  });
+  // recentGrades.forEach(grade => {
+  //   activities.push({
+  //     type: 'grade',
+  //     description: `Grade received for ${grade.subject.name}: ${grade.grade}`,
+  //     createdAt: grade.createdAt
+  //   });
+  // });
 
   return activities.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
 };

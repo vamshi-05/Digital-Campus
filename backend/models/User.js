@@ -29,6 +29,17 @@ const userSchema = new mongoose.Schema(
     address: { type: String }, // for students
     parentName: { type: String }, // for students
     parentPhone: { type: String }, // for students
+
+    // Academic performance for students
+    grades: [
+      {
+        semester: { type: String }, // e.g., '1st Semester', ...
+        isSemesterCompleted: { type: Boolean, default: false },
+        sgpa: { type: Number, default: 0 },
+        released: { type: Boolean, default: false } // whether results are released for this semester
+      }
+    ],
+    cgpa: { type: Number, default: 0 },
     
     // Status field for both faculty and students
     status: { 

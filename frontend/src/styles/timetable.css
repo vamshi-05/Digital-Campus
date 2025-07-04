@@ -433,4 +433,71 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Enhanced Faculty Timetable Table Styles */
+.timetable-table.enhanced {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(168, 237, 234, 0.12);
+  margin-bottom: 20px;
+}
+.timetable-table.enhanced th, .timetable-table.enhanced td {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+.timetable-table.enhanced th {
+  background: linear-gradient(135deg, #a8edea, #fed6e3);
+  color: #333;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.timetable-table.enhanced tr:last-child td {
+  border-bottom: none;
+}
+.timetable-slot-table.my-period {
+  background: linear-gradient(135deg, #a8edea 60%, #fed6e3 100%);
+  color: #222;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(168, 237, 234, 0.08);
+  transition: background 0.3s;
+}
+.timetable-slot-table.my-period .period-details {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.timetable-slot-table.not-my-period {
+  background: #f8f9fa;
+  color: #bbb;
+  font-style: italic;
+}
+.timetable-slot-table .no-period {
+  opacity: 0.5;
+}
+.timetable-class-meta {
+  font-size: 0.95rem;
+  color: #666;
+  margin-left: 10px;
+}
+
+/* Responsive for table */
+@media (max-width: 900px) {
+  .timetable-table.enhanced th, .timetable-table.enhanced td {
+    font-size: 0.85rem;
+    padding: 10px 4px;
+  }
+}
+@media (max-width: 600px) {
+  .timetable-table.enhanced th, .timetable-table.enhanced td {
+    font-size: 0.75rem;
+    padding: 7px 2px;
+  }
 } 

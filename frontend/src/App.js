@@ -15,7 +15,6 @@ import Attendance from './pages/Attendance';
 import Classes from './pages/Classes';
 import Complaints from './pages/Complaints';
 import Departments from './pages/Departments';
-import Notices from './pages/Notices';
 import Timetable from './pages/Timetable';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
@@ -168,51 +167,7 @@ function Navigation({ user, logout }) {
                       </>
                     ) : user.role === 'departmentAdmin' ? (
                       <>
-                        <li>
-                          <Link 
-                            to="/dashboard" 
-                            className={`nav-link${isActive('/dashboard') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Dashboard
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/department-admin/classes" 
-                            className={`nav-link${isActive('/department-admin/classes') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Classes
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/department-admin/faculty" 
-                            className={`nav-link${isActive('/department-admin/faculty') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Faculty
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/department-admin/subjects" 
-                            className={`nav-link${isActive('/department-admin/subjects') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Subjects
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/department-admin/students" 
-                            className={`nav-link${isActive('/department-admin/students') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Students
-                          </Link>
-                        </li>
+                        
                         <li className="navbar-nav-right">
                           <Link 
                             to="/profile" 
@@ -235,136 +190,28 @@ function Navigation({ user, logout }) {
                         </li>
                       </>
                     ) : (
-                      <>
-                        <li>
-                          <Link 
-                            to="/dashboard" 
-                            className={`nav-link${isActive('/dashboard') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Dashboard
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/attendance" 
-                            className={`nav-link${isActive('/attendance') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Attendance
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/classes" 
-                            className={`nav-link${isActive('/classes') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Classes
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/complaints" 
-                            className={`nav-link${isActive('/complaints') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Complaints
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/departments" 
-                            className={`nav-link${isActive('/departments') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Departments
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/notices" 
-                            className={`nav-link${isActive('/notices') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Notices
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/notice-board" 
-                            className={`nav-link${isActive('/notice-board') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Notice Board
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/timetable" 
-                            className={`nav-link${isActive('/timetable') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Timetable
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/timetable-management" 
-                            className={`nav-link${isActive('/timetable-management') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Timetable Management
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/chat" 
-                            className={`nav-link${isActive('/chat') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Chat
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/chat-interface" 
-                            className={`nav-link${isActive('/chat-interface') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Chat Interface
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/grades" 
-                            className={`nav-link${isActive('/grades') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Grades
-                          </Link>
-                        </li>
-                        <li>
-                          <Link 
-                            to="/profile" 
-                            className={`nav-link${isActive('/profile') ? ' active' : ''}`}
-                            onClick={() => setIsMenuOpen(false)}
-                          >
-                            Profile
-                          </Link>
-                        </li>
-                        <li className="navbar-nav-right">
-                          <button 
-                            onClick={() => {
-                              logout();
-                              setIsMenuOpen(false);
-                            }}
-                            className="nav-link logout-btn"
-                          >
-                            Logout
-                          </button>
-                        </li>
-                      </>
+                     <>
+                     <li className="navbar-nav-right">
+                      <Link 
+                        to="/profile" 
+                        className="nav-link"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        {user.name}
+                      </Link>
+                    </li>
+                    <li className="navbar-nav-right">
+                      <button 
+                        onClick={() => {
+                          logout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="nav-link logout-btn"
+                      >
+                        Logout
+                      </button>
+                    </li>
+                     </>
                     )}
                   </>
                 ) : (
@@ -490,13 +337,7 @@ function App() {
                     </FirstLoginRedirect>
                   </ProtectedRoute>
                 } />
-                <Route path="/notices" element={
-                  <ProtectedRoute>
-                    <FirstLoginRedirect>
-                      <PageWrapper><Notices /></PageWrapper>
-                    </FirstLoginRedirect>
-                  </ProtectedRoute>
-                } />
+               
                 <Route path="/notice-board" element={
                   <ProtectedRoute>
                     <FirstLoginRedirect>

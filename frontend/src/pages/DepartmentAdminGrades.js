@@ -24,6 +24,15 @@ const DepartmentAdminGrades = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [filteredStudents, setFilteredStudents] = useState([]);
 
+  // Release semester modal states
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [releaseData, setReleaseData] = useState({
+    semester: '',
+    academicYear: ''
+  });
+  const [releaseLoading, setReleaseLoading] = useState(false);
+
   const semesters = ['1st Semester', '2nd Semester', '3rd Semester', '4th Semester', '5th Semester', '6th Semester', '7th Semester', '8th Semester'];
   const academicYears = ['2023-24', '2024-25', '2025-26'];
 
@@ -191,6 +200,43 @@ const DepartmentAdminGrades = () => {
     }
   };
 
+  // Release semester functions
+  const handleReleaseSemester = () => {
+    setShowReleaseModal(true);
+  };
+
+  const handleReleaseSubmit = (e) => {
+    e.preventDefault();
+    if (releaseData.semester && releaseData.academicYear) {
+      setShowReleaseModal(false);
+      setShowConfirmationModal(true);
+    }
+  };
+
+  const handleConfirmRelease = async () => {
+    setReleaseLoading(true);
+    setError('');
+    try {
+      await axios.post('/grade/release-semester', {
+        semester: releaseData.semester,
+        academicYear: releaseData.academicYear
+      });
+      setSuccess(`Grades for ${releaseData.semester} (${releaseData.academicYear}) have been released successfully!`);
+      setShowConfirmationModal(false);
+      setReleaseData({ semester: '', academicYear: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to release semester grades');
+    } finally {
+      setReleaseLoading(false);
+    }
+  };
+
+  const handleCancelRelease = () => {
+    setShowReleaseModal(false);
+    setShowConfirmationModal(false);
+    setReleaseData({ semester: '', academicYear: '' });
+  };
+
   const getGradeColor = (grade) => {
     if (grade === 'A+') return '#4CAF50';
     if (grade === 'A') return '#8BC34A';
@@ -254,6 +300,25 @@ const DepartmentAdminGrades = () => {
               <option key={sub} value={sub}>{subjects.find(s => s._id === sub)?.name}</option>
             ))}
           </select>
+        </div>
+        <div className="release-section">
+          <button 
+            className="release-btn" 
+            onClick={handleReleaseSemester}
+            style={{ 
+              backgroundColor: '#28a745', 
+              color: 'white', 
+              padding: '10px 20px', 
+              border: 'none', 
+              borderRadius: '5px', 
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              
+            }}
+          >
+            Release Semester Grades
+          </button>
         </div>
       </div>
       {error && <div className="error">{error}</div>}
@@ -333,6 +398,108 @@ const DepartmentAdminGrades = () => {
           </div>
         </div>
       ) : null}
+
+      {/* Release Semester Modal */}
+      {showReleaseModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Release Semester Grades</h3>
+              <button className="close-btn" onClick={handleCancelRelease}>&times;</button>
+            </div>
+            <form onSubmit={handleReleaseSubmit}>
+              <div className="modal-body">
+               
+                <div className="form-group">
+                  <label htmlFor="release-academic-year">Academic Year:</label>
+                  <select
+                    id="release-academic-year"
+                    value={releaseData.academicYear}
+                    onChange={e => setReleaseData(prev => ({ ...prev, academicYear: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select Academic Year</option>
+                    {academicYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="release-semester">Semester:</label>
+                  <select
+                    id="release-semester"
+                    value={releaseData.semester}
+                    onChange={e => setReleaseData(prev => ({ ...prev, semester: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select Semester</option>
+                    {semesters.map(sem => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="cancel-btn" onClick={handleCancelRelease}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn">
+                  Continue
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmationModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Confirm Release</h3>
+              <button className="close-btn" onClick={handleCancelRelease}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Are you sure you want to release grades for <strong>{releaseData.semester}</strong> 
+                ({releaseData.academicYear})?
+              </p>
+              <p style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                This action will:
+              </p>
+              <ul style={{ color: '#dc3545', marginLeft: '20px' }}>
+                <li>Calculate SGPA for all students in this semester</li>
+                <li>Mark the semester as completed</li>
+                <li>Recalculate CGPA for all students</li>
+                <li>Make grades visible to students</li>
+              </ul>
+              <p style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                This action cannot be undone!
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                className="cancel-btn" 
+                onClick={handleCancelRelease}
+                disabled={releaseLoading}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="submit-btn" 
+                onClick={handleConfirmRelease}
+                disabled={releaseLoading}
+                style={{ backgroundColor: releaseLoading ? '#6c757d' : '#dc3545' }}
+              >
+                {releaseLoading ? 'Releasing...' : 'Confirm Release'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
